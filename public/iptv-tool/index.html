@@ -3,55 +3,65 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>组播 → 单播转换工具 | IPTV</title>
+  <title>IPTV 组播转单播工具</title>
 
   <style>
     :root{
       --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#4f9cff;
-      --glass: rgba(255,255,255,0.04); --radius:14px; --padding:18px; --maxw:980px;
+      --glass: rgba(255,255,255,0.05); --radius:14px; --padding:18px;
+      --maxw:980px;
     }
     @media (prefers-color-scheme: light){
-      :root{--bg:#f5f7fa; --card:#ffffff; --muted:#556272; --accent:#0b66ff; --glass:rgba(0,0,0,0.04);}
+      :root{--bg:#f5f7fa; --card:#ffffff; --muted:#556272; --accent:#0b66ff; --glass:rgba(0,0,0,0.06);}
     }
-    html,body{
-      height:100%; margin:0; font-family:Inter,system-ui;
-      background:linear-gradient(180deg,#081225 0%, var(--bg) 100%); color:#e6eef8;
+    body{
+      margin:0; font-family:Inter,system-ui;
+      background:linear-gradient(180deg,#081225 0%, var(--bg) 100%);
+      color:#e6eef8;
     }
-    .wrap{max-width:var(--maxw); margin:20px auto; padding:20px;}
-    .card{background:var(--card); border-radius:var(--radius);
-      padding:var(--padding); box-shadow:0 6px 30px rgba(2,6,23,0.6);}
-    header{display:flex; gap:12px; align-items:center; margin-bottom:12px}
+    .wrap{max-width:var(--maxw);margin:20px auto;padding:20px;}
+    .card{
+      background:var(--card);border-radius:var(--radius);
+      padding:var(--padding);box-shadow:0 6px 30px rgba(2,6,23,0.6);
+    }
+    header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
     .logo{
       width:56px;height:56px;border-radius:12px;
       background:linear-gradient(135deg,var(--accent),#2ec6ff);
-      display:flex;align-items:center;justify-content:center;font-weight:700
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;
     }
-    h1{margin:0;font-size:18px}
-    p.lead{margin:6px 0 0;color:var(--muted);font-size:13px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:14px}
 
-    /* grid */
-    .grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
-    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:16px;}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr;} }
 
-    textarea,input{
-      width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,0.04);
-      background:transparent;color:inherit;padding:10px;border-radius:10px;
-      font-size:14px;
+    input,textarea{
+      width:100%;padding:10px;border-radius:10px;
+      background:transparent;color:inherit;font-size:14px;
+      border:1px solid rgba(255,255,255,0.1);
+      box-sizing:border-box;
     }
-    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    textarea{resize:vertical}
 
     .btn{
-      background:var(--accent);color:#fff;padding:10px 12px;border-radius:10px;
-      border:none;cursor:pointer;font-size:13px;
+      background:var(--accent);color:white;border:none;cursor:pointer;
+      padding:10px 12px;border-radius:10px;font-size:13px;
     }
-    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.10);}
-    .btn.small{padding:7px 10px;font-size:12px}
+    .btn.ghost{
+      background:transparent;border:1px solid rgba(255,255,255,0.12);
+    }
+    .btn.small{padding:6px 10px;font-size:12px}
 
-    .meta{background:var(--glass);padding:12px;border-radius:10px;color:var(--muted);font-size:13px}
-    .chip{display:inline-block;padding:5px 9px;border-radius:99px;
-      background:rgba(255,255,255,0.07);margin:4px;font-size:12px}
-
-    footer{margin-top:12px;color:var(--muted);font-size:12px}
+    .meta{
+      background:var(--glass);padding:12px;border-radius:10px;
+      font-size:13px;color:var(--muted);
+    }
+    .chip{
+      display:inline-block;padding:5px 9px;border-radius:999px;
+      background:rgba(255,255,255,0.1);margin:4px;font-size:12px;
+    }
 
     .output{height:300px}
   </style>
@@ -65,273 +75,266 @@
         <div class="logo">IPTV</div>
         <div>
           <h1>组播 → 单播转换工具</h1>
-          <p class="lead">深色模式 · TXT 上传 · m3u 下载 · 智能分组 · 自动保存</p>
+          <p class="lead">TXT 上传 · URL 导入 · 自动保存 · 智能分组 · 深色 UI</p>
         </div>
       </header>
 
       <div class="grid">
+
         <!-- LEFT -->
         <div>
-          <label>单播服务器地址（例如：http://192.168.100.1:5140）</label>
+          <label>单播服务器地址</label>
           <input id="server" placeholder="http://192.168.100.1:5140" />
 
-          <label style="margin-top:12px">FCC 参数（如：121.60.255.120:15970，可为空）</label>
+          <label style="margin-top:12px">FCC 参数（可选）</label>
           <input id="fcc" placeholder="121.60.255.120:15970" />
 
-          <label style="margin-top:12px">输入组播源（格式：频道名,rtp://239.x.x.x:port）</label>
-          <textarea id="input" style="height:220px" placeholder="例如：CCTV1,rtp://239.254.96.96:8550"></textarea>
+          <label style="margin-top:12px">输入组播源</label>
+          <textarea id="input" style="height:200px" placeholder="CCTV1,rtp://239.254.96.96:8550"></textarea>
 
-          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
             <button class="btn" id="convert">生成</button>
             <button class="btn ghost" id="copy">复制</button>
             <button class="btn" id="download">下载 m3u</button>
             <button class="btn ghost" id="clear">清空</button>
           </div>
 
-          <label style="margin-top:18px">输出结果（单播格式）</label>
+          <label style="margin-top:20px;">输出结果</label>
           <textarea id="output" class="output" readonly></textarea>
-
-          <footer>
-            所有数据仅保存在浏览器本地（localStorage）。你可以把此页面嵌入 Notion 或托管到 Vercel / Cloudflare Pages。
-          </footer>
         </div>
 
-        <!-- RIGHT → 操作面板 -->
+        <!-- RIGHT -->
         <aside>
           <div class="meta">
-            <strong>操作面板</strong>
+            <strong>上传文件</strong>
 
-            <div style="margin-top:10px">
+            <div style="margin-top:10px;">
               <input type="file" id="file" accept=".txt" />
             </div>
 
-            <div style="margin-top:10px">
-              <button class="btn small" id="loadSample">加载示例</button>
-            </div>
+            <label style="margin-top:14px;">在线 TXT 地址（URL）</label>
+            <input id="remoteUrl" placeholder="https://example.com/list.txt" />
 
-            <div style="margin-top:10px">
+            <button class="btn small" id="loadUrl" style="margin-top:6px;">导入</button>
+
+            <button class="btn small" id="loadSample" style="margin-top:12px;">加载示例</button>
+
+            <div style="margin-top:12px;">
               <div class="chip" id="count">行数：0</div>
               <div class="chip" id="groups">分组：0</div>
             </div>
 
-            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:14px 0"/>
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:14px 0">
 
             <strong>分组预览</strong>
-            <div id="preview" style="margin-top:8px;max-height:420px;overflow:auto"></div>
+            <div id="preview" style="margin-top:8px;max-height:420px;overflow:auto;"></div>
+
           </div>
         </aside>
-      </div><!-- /grid -->
-      <script>
-      // 等待 DOM 加载完成再绑定事件 —— 解决按钮无反应问题
-      document.addEventListener("DOMContentLoaded", function () {
-        console.log("IPTV Tool Loaded");
 
-        const $ = id => document.getElementById(id);
+      </div><!-- grid -->
 
-        const serverEl = $("server");
-        const fccEl = $("fcc");
-        const inputEl = $("input");
-        const outputEl = $("output");
-        const previewEl = $("preview");
-        const countEl = $("count");
-        const groupsEl = $("groups");
+    </div><!-- card -->
+  </div><!-- wrap -->
 
-        const LS_INPUT = "iptv_input_v3";
-        const LS_SERVER = "iptv_server_v3";
-        const LS_FCC = "iptv_fcc_v3";
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-        // -----------------------
-        // 恢复本地保存
-        // -----------------------
-        serverEl.value = localStorage.getItem(LS_SERVER) || "";
-        fccEl.value = localStorage.getItem(LS_FCC) || "";
-        inputEl.value = localStorage.getItem(LS_INPUT) || "";
+  const $ = id => document.getElementById(id);
 
-        updateMeta();
+  const serverEl = $("server");
+  const fccEl = $("fcc");
+  const inputEl = $("input");
+  const outputEl = $("output");
+  const countEl = $("count");
+  const groupsEl = $("groups");
+  const previewEl = $("preview");
 
-        // -----------------------
-        // 事件绑定
-        // -----------------------
-        $("convert").onclick = generate;
-        $("download").onclick = downloadM3U;
-        $("copy").onclick = copyOutput;
-        $("clear").onclick = clearAll;
-        $("file").onchange = handleFile;
-        $("loadSample").onclick = loadSample;
+  const LS_IN  = "iptv_in_v5";
+  const LS_SRV = "iptv_srv_v5";
+  const LS_FCC = "iptv_fcc_v5";
 
-        inputEl.oninput = saveAll;
-        serverEl.oninput = saveAll;
-        fccEl.oninput = saveAll;
+  // --------------------------------------------------
+  // 自动读取本地保存
+  // --------------------------------------------------
+  serverEl.value = localStorage.getItem(LS_SRV) || "";
+  fccEl.value    = localStorage.getItem(LS_FCC) || "";
+  inputEl.value  = localStorage.getItem(LS_IN)  || "";
+  updateMeta();
 
-        // -----------------------
-        // 文件上传（TXT）
-        // -----------------------
-        function handleFile(e) {
-          const file = e.target.files[0];
-          if (!file) return;
+  // --------------------------------------------------
+  // 按钮绑定
+  // --------------------------------------------------
+  $("convert").onclick  = generate;
+  $("download").onclick = downloadM3U;
+  $("copy").onclick     = copyOutput;
+  $("clear").onclick    = clearAll;
+  $("file").onchange    = handleFile;
+  $("loadSample").onclick = loadSample;
+  $("loadUrl").onclick  = importURL;
 
-          const reader = new FileReader();
-          reader.onload = function () {
-            const txt = reader.result.replace(/\r/g, "");
-            inputEl.value = (inputEl.value.trim() + "\n" + txt).trim();
-            saveAll();
-            updateMeta();
-          };
-          reader.readAsText(file);
-        }
+  inputEl.oninput = saveAll;
+  serverEl.oninput = saveAll;
+  fccEl.oninput = saveAll;
 
-        // -----------------------
-        // 示例加载
-        // -----------------------
-        function loadSample() {
-          const example = [
-            "CCTV1,rtp://239.254.96.96:8550",
-            "CCTV5,rtp://239.69.1.123:10376",
-            "湖北卫视,rtp://239.254.96.115:8664"
-          ].join("\n");
-          inputEl.value = example;
-          saveAll();
-          updateMeta();
-        }
+  // --------------------------------------------------
+  function saveAll() {
+    localStorage.setItem(LS_IN,  inputEl.value);
+    localStorage.setItem(LS_SRV, serverEl.value);
+    localStorage.setItem(LS_FCC, fccEl.value);
+    updateMeta();
+  }
 
-        // -----------------------
-        // 保存到 localStorage
-        // -----------------------
-        function saveAll() {
-          localStorage.setItem(LS_INPUT, inputEl.value);
-          localStorage.setItem(LS_SERVER, serverEl.value);
-          localStorage.setItem(LS_FCC, fccEl.value);
-          updateMeta();
-        }
+  // --------------------------------------------------
+  function handleFile(e){
+    const file = e.target.files[0];
+    if (!file) return;
 
-        // -----------------------
-        // 清空
-        // -----------------------
-        function clearAll() {
-          if (!confirm("确认清空输入？")) return;
-          inputEl.value = "";
-          outputEl.value = "";
-          saveAll();
-          updateMeta();
-        }
+    const r = new FileReader();
+    r.onload = () => {
+      inputEl.value = (inputEl.value.trim() + "\n" + r.result.replace(/\r/g,"")).trim();
+      saveAll();
+    };
+    r.readAsText(file);
+  }
 
-        // -----------------------
-        // 复制
-        // -----------------------
-        function copyOutput() {
-          if (!outputEl.value.trim()) return alert("没有内容可复制");
-          navigator.clipboard.writeText(outputEl.value).then(() => {
-            alert("已复制到剪贴板");
-          });
-        }
+  // --------------------------------------------------
+  // 在线 URL 导入 TXT
+  // --------------------------------------------------
+  async function importURL() {
+    const url = $("remoteUrl").value.trim();
+    if (!url) return alert("请输入 URL");
 
-        // -----------------------
-        // 下载 m3u
-        // -----------------------
-        function downloadM3U() {
-          if (!outputEl.value.trim()) return alert("请先生成内容");
-          const blob = new Blob([outputEl.value], { type: "audio/x-mpegurl" });
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "iptv.m3u";
-          a.click();
-        }
+    try{
+      const res = await fetch(url);
+      if (!res.ok) return alert("无法访问：" + res.status);
 
-        // -----------------------
-        // 智能分组判定
-        // -----------------------
-        function smartGroup(name) {
-          if (/CCTV|CGTN/i.test(name)) return "央视";
-          if (/卫视|TV|湖北|湖南|广东|北京|上海|山东|江苏|浙江|黑龙江|吉林|辽宁|天津|重庆/.test(name))
-            return "卫视";
-          return "其它";
-        }
+      const txt = await res.text();
+      inputEl.value = (inputEl.value.trim() + "\n" + txt.replace(/\r/g,"")).trim();
+      saveAll();
+      alert("已成功导入在线 TXT");
+    }catch(e){
+      alert("获取失败：" + e.message);
+    }
+  }
 
-        // -----------------------
-        // 更新 UI 统计与分组预览
-        // -----------------------
-        function updateMeta() {
-          const lines = parseLines();
-          countEl.textContent = "行数：" + lines.length;
+  // --------------------------------------------------
+  function loadSample(){
+    inputEl.value =
+      "CCTV1,rtp://239.254.96.96:8550\n" +
+      "湖北卫视,rtp://239.254.96.115:8664";
+    saveAll();
+  }
 
-          const groups = {};
+  // --------------------------------------------------
+  function clearAll(){
+    if (!confirm("确认清空？")) return;
+    inputEl.value = "";
+    outputEl.value = "";
+    saveAll();
+  }
 
-          lines.forEach(item => {
-            const g = smartGroup(item.name);
-            if (!groups[g]) groups[g] = [];
-            groups[g].push(item.name);
-          });
+  // --------------------------------------------------
+  function copyOutput(){
+    if (!outputEl.value.trim()) return;
+    navigator.clipboard.writeText(outputEl.value);
+    alert("已复制");
+  }
 
-          groupsEl.textContent = "分组：" + Object.keys(groups).length;
+  // --------------------------------------------------
+  function downloadM3U(){
+    if (!outputEl.value.trim()) return alert("请先生成");
+    const blob = new Blob([outputEl.value], {type:"audio/x-mpegurl"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "iptv.m3u";
+    a.click();
+  }
 
-          // 渲染预览
-          previewEl.innerHTML = "";
-          for (const g in groups) {
-            const div = document.createElement("div");
-            div.style.marginBottom = "10px";
+  // --------------------------------------------------
+  function parseLines(){
+    return inputEl.value
+      .split("\n")
+      .map(l => l.trim())
+      .filter(l => l.includes(","))
+      .map(l => {
+        const [name,url] = l.split(",");
+        return { name:name.trim(), url:url.trim() };
+      });
+  }
 
-            const title = document.createElement("div");
-            title.textContent = `${g}（${groups[g].length}）`;
-            title.style.fontWeight = "700";
-            div.appendChild(title);
+  // --------------------------------------------------
+  function smartGroup(name){
+    if (/CCTV|CGTN/i.test(name)) return "央视";
+    if (/卫视|湖北|湖南|广东|北京|上海|山东|江苏|浙江/.test(name)) return "卫视";
+    return "其它";
+  }
 
-            const wrap = document.createElement("div");
-            groups[g].slice(0, 20).forEach(n => {
-              const chip = document.createElement("div");
-              chip.className = "chip";
-              chip.textContent = n;
-              wrap.appendChild(chip);
-            });
+  // --------------------------------------------------
+  function updateMeta(){
+    const lines = parseLines();
+    countEl.textContent = "行数：" + lines.length;
 
-            div.appendChild(wrap);
-            previewEl.appendChild(div);
-          }
-        }
+    const groups = {};
+    lines.forEach(item=>{
+      const g = smartGroup(item.name);
+      if (!groups[g]) groups[g]=[];
+      groups[g].push(item.name);
+    });
 
-        // -----------------------
-        // 解析输入文本
-        // -----------------------
-        function parseLines() {
-          return inputEl.value
-            .split("\n")
-            .map(a => a.trim())
-            .filter(a => a.includes(","))
-            .map(a => {
-              const [name, url] = a.split(",");
-              return { name: name.trim(), url: url.trim() };
-            });
-        }
+    groupsEl.textContent = "分组：" + Object.keys(groups).length;
 
-        // -----------------------
-        // 主功能：生成单播格式
-        // -----------------------
-        function generate() {
-          const server = serverEl.value.trim();
-          if (!server) return alert("请填写单播服务器地址");
+    previewEl.innerHTML = "";
+    for(const g in groups){
+      const div = document.createElement("div");
+      div.style.marginBottom = "8px";
 
-          const fcc = fccEl.value.trim();
-          const items = parseLines();
-          if (!items.length) return alert("没有可用输入行");
+      const title = document.createElement("div");
+      title.textContent = `${g}（${groups[g].length}）`;
+      title.style.fontWeight = "700";
+      div.appendChild(title);
 
-          let out = "#EXTM3U\n\n";
+      const wrap = document.createElement("div");
+      groups[g].slice(0,20).forEach(n=>{
+        const c = document.createElement("div");
+        c.className = "chip";
+        c.textContent = n;
+        wrap.appendChild(c);
+      });
 
-          items.forEach(item => {
-            const group = smartGroup(item.name);
-            const rtp = item.url.replace("rtp://", "");
+      div.appendChild(wrap);
+      previewEl.appendChild(div);
+    }
+  }
 
-            out += `#EXTINF:-1 group-title="${group}",${item.name}\n`;
-            let url = `${server}/rtp/${rtp}`;
-            if (fcc) url += `?fcc=${encodeURIComponent(fcc)}`;
-            out += url + "\n\n";
-          });
+  // --------------------------------------------------
+  // 主功能：生成单播格式
+  // --------------------------------------------------
+  function generate(){
+    const srv = serverEl.value.trim();
+    if (!srv) return alert("请填写单播服务器地址");
 
-          outputEl.value = out.trim();
-        }
+    const fcc = fccEl.value.trim();
+    const items = parseLines();
+    if (!items.length) return alert("无有效行");
 
-      }); // DOMContentLoaded
-      </script>
+    let out = "#EXTM3U\n\n";
 
-    </div><!-- /card -->
-  </div><!-- /wrap -->
+    items.forEach(item=>{
+      const group = smartGroup(item.name);
+      const rtp = item.url.replace("rtp://","");
+
+      out += `#EXTINF:-1 group-title="${group}",${item.name}\n`;
+      let url = `${srv}/rtp/${rtp}`;
+      if (fcc) url += `?fcc=${encodeURIComponent(fcc)}`;
+      out += url + "\n\n";
+    });
+
+    outputEl.value = out.trim();
+  }
+
+});
+</script>
+
 </body>
 </html>
