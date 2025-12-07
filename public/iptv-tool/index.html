@@ -83,11 +83,24 @@
 
         <!-- LEFT -->
         <div>
-          <label>单播服务器地址</label>
-          <input id="server" placeholder="http://192.168.100.1:5140" />
+<label>单播服务器地址</label>
+<div style="position:relative">
+  <input id="server" placeholder="http://192.168.100.1:5140" />
+  <div style="font-size:12px;color:var(--muted);margin-top:4px;cursor:pointer" 
+       onclick="document.getElementById('server').value='http://192.168.100.1:5140'; saveAll();">
+    示例：<code>http://192.168.100.1:5140</code>（点击填入）
+  </div>
+</div>
 
-          <label style="margin-top:12px">FCC 参数（可选）</label>
-          <input id="fcc" placeholder="121.60.255.120:15970" />
+
+<label style="margin-top:12px">FCC 参数（可选）</label>
+<div style="position:relative">
+  <input id="fcc" placeholder="121.60.255.120:15970" />
+  <div style="font-size:12px;color:var(--muted);margin-top:4px;cursor:pointer" 
+       onclick="document.getElementById('fcc').value='121.60.255.120:15970'; saveAll();">
+    示例：<code>121.60.255.120:15970</code>（点击填入）
+  </div>
+</div>
 
           <label style="margin-top:12px">输入组播源</label>
           <textarea id="input" style="height:200px" placeholder="CCTV1,rtp://239.254.96.96:8550"></textarea>
