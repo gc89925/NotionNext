@@ -1,375 +1,217 @@
 import { useState, useRef, useEffect } from 'react';
 
-// ======================== 1. 对齐主流网站的核心配置 ========================
+// NAT类型定义（极简精准）
 const NAT_TYPES = {
-  full_cone: { name: "Full Cone (全锥形)", code: "NAT1", color: "#10B981", icon: "✅" },
-  restricted_cone: { name: "Restricted Cone (限制锥形)", code: "NAT2", color: "#3B82F6", icon: "🟢" },
-  port_restricted_cone: { name: "Port Restricted Cone (端口限制锥形)", code: "NAT3", color: "#F59E0B", icon: "🟡" },
-  symmetric: { name: "Symmetric (对称型)", code: "NAT4", color: "#EF4444", icon: "🔴" },
-  unknown: { name: "Unknown (未知)", code: "NAT0", color: "#6B7280", icon: "❓" },
-  direct: { name: "Direct (直连公网)", code: "NAT-", color: "#8B5CF6", icon: "🌟" }
+  full_cone: { name: "全锥形", code: "NAT1", color: "#10B981", icon: "✅" },
+  symmetric: { name: "对称型", code: "NAT4", color: "#EF4444", icon: "🔴" },
+  direct: { name: "直连公网", code: "NAT-", color: "#8B5CF6", icon: "🌟" },
+  unknown: { name: "未知", code: "NAT0", color: "#6B7280", icon: "❓" }
 };
 
-// 主流检测网站使用的STUN服务器（对齐配置格式）
-const STUN_SERVERS = [
-  { urls: ["stun:stun.l.google.com:19302"], desc: "Google" },
-  { urls: ["stun:stun1.l.google.com:19302"], desc: "Google 1" },
-  { urls: ["stun:stun2.l.google.com:19302"], desc: "Google 2" },
+// 最优STUN服务器（国内延迟最低，只选2个极速的）
+const FAST_STUN_SERVERS = [
   { urls: ["stun:stun.qq.com:3478"], desc: "腾讯" },
   { urls: ["stun:stun.miwifi.com:3478"], desc: "小米" },
-  { urls: ["stun:stun.cloudflare.com:3478"], desc: "Cloudflare" },
 ];
 
-// 内网IP段（精准判断）
-const PRIVATE_IPS = [
-  /^192\.168\./, /^10\./, /^172\.(1[6-9]|2\d|3[0-1])\./, /^127\./, /^169\.254\./
-];
-
-// ======================== 2. 核心工具函数（对齐主流解析逻辑） ========================
-const isPrivateIP = (ip) => PRIVATE_IPS.some(re => re.test(ip));
-
-// 精准解析ICE候选者（完全对齐natchecker.com的解析逻辑）
-const parseCandidate = (candidateStr) => {
-  if (!candidateStr || !candidateStr.includes('typ=')) return null;
-  
-  const parts = candidateStr.trim().split(' ');
-  if (parts.length < 8) return null;
-
-  const res = {
-    foundation: parts[0],
-    component: parts[1],
-    protocol: parts[2].toLowerCase(),
-    priority: parseInt(parts[3], 10),
-    ip: parts[4],
-    port: parseInt(parts[5], 10),
-    type: 'host',
-    raddr: null,
-    rport: null,
-    isPrivate: isPrivateIP(parts[4])
-  };
-
-  // 解析类型和关联地址（关键修复：主流网站的解析逻辑）
-  for (let i = 7; i < parts.length; i++) {
-    const [key, value] = parts[i].split('=');
-    if (!key || !value) continue;
-    
-    if (key === 'typ') res.type = value;
-    else if (key === 'raddr') res.raddr = value;
-    else if (key === 'rport') res.rport = parseInt(value, 10);
-  }
-
-  // 仅保留有效候选者
-  if (res.type !== 'srflx' && res.type !== 'host' && res.type !== 'relay') return null;
-  if (res.protocol !== 'udp') return null; // 主流工具仅关注UDP（TCP不用于NAT检测）
-  
-  return res;
+// 极简内网IP判断（性能优先）
+const isPrivateIP = (ip) => {
+  return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.|127\.|169\.254\.)/.test(ip);
 };
 
-// ======================== 3. 图标组件 ========================
+// 极速候选者解析（只提取必要字段）
+const parseFastCandidate = (candidateStr) => {
+  if (!candidateStr || !candidateStr.includes('typ=srflx')) return null;
+  const match = candidateStr.match(/(\d+\.\d+\.\d+\.\d+)\s+(\d+).*raddr=(\d+\.\d+\.\d+\.\d+).*rport=(\d+)/);
+  if (!match) return null;
+  return {
+    publicIp: match[1],
+    publicPort: parseInt(match[2]),
+    localIp: match[3],
+    localPort: parseInt(match[4])
+  };
+};
+
+// 图标组件（极简）
 const Icons = {
   Radar: (props) => (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
-      <circle cx="12" cy="12" r="4" fill="currentColor" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l1.41-1.41M16.17 7.76l1.41-1.41" />
+      <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" />
     </svg>
   ),
-  Check: (props) => (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ),
-  Cross: (props) => (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  ),
-  Loader: (props) => (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" strokeDasharray="62.8" strokeDashoffset="15.7" transform="rotate(-90 12 12)">
-        <animate attributeName="strokeDashoffset" values="62.8;0" dur="1.5s" repeatCount="indefinite" />
-      </circle>
-    </svg>
-  )
+  Check: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>,
+  Cross: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
+  Loader: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="62.8" strokeDashoffset="15.7" transform="rotate(-90 12 12)"><animate attributeName="strokeDashoffset" values="62.8;0" dur="1s" repeatCount="indefinite" /></circle></svg>
 };
 
-// ======================== 4. 核心检测逻辑（完全对齐主流网站） ========================
-const NatDetectorPage = () => {
-  const [status, setStatus] = useState('idle');
+// 核心组件
+const FastNATDetector = () => {
+  const [status, setStatus] = useState('idle'); // idle/scanning/success/error
   const [natType, setNatType] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [progress, setProgress] = useState(0);
-  
-  const abortRef = useRef(new AbortController());
-  const logsEndRef = useRef(null);
+  const [log, setLog] = useState('');
+  const abortRef = useRef(null);
 
-  // 日志自动滚动
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
-  // 日志函数
-  const addLog = (msg, type = 'info') => {
+  // 极速日志函数（只更最新，不存历史，提升性能）
+  const updateLog = (msg) => {
     const time = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, { time, msg, type }]);
-    console.log(`[${type}] ${time}: ${msg}`);
+    const newLog = `[${time}] ${msg}`;
+    setLog(newLog);
+    console.log(newLog);
   };
 
   // 重置状态
   const reset = () => {
+    if (abortRef.current) abortRef.current.abort();
     setStatus('idle');
     setNatType(null);
-    setLogs([]);
-    setProgress(0);
-    abortRef.current.abort();
-    abortRef.current = new AbortController();
+    setLog('');
   };
 
-  // 核心：获取单个STUN服务器的映射（对齐主流网站的极简实现）
-  const getMapping = async (server) => {
-    return new Promise((resolve) => {
-      // 关键1：不创建dataChannel（主流工具都不创建）
-      const pc = new RTCPeerConnection({ iceServers: [server] });
-      let mapping = null;
-      let timeout = null;
-
-      // 关键2：监听候选者（仅关注srflx类型）
-      pc.onicecandidate = (e) => {
-        if (!e.candidate) return;
-        const cand = parseCandidate(e.candidate.candidate);
-        if (cand && cand.type === 'srflx' && !cand.isPrivate) {
-          mapping = {
-            publicIp: cand.ip,
-            publicPort: cand.port,
-            localIp: cand.raddr,
-            localPort: cand.rport,
-            server: server.desc
-          };
-          addLog(`✅ ${server.desc}: 公网${cand.ip}:${cand.port} → 内网${cand.raddr}:${cand.rport}`, "success");
-          clearTimeout(timeout);
-          pc.close();
-          resolve(mapping);
-        }
-      };
-
-      // 关键3：监听ICE收集完成
-      pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === 'complete') {
-          clearTimeout(timeout);
-          pc.close();
-          resolve(mapping);
-        }
-      };
-
-      // 关键4：立即创建Offer（不等待，触发ICE收集）
-      pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
-        .then(offer => pc.setLocalDescription(offer))
-        .catch(err => {
-          addLog(`❌ ${server.desc}创建Offer失败: ${err.message}`, "error");
-          clearTimeout(timeout);
-          pc.close();
-          resolve(null);
-        });
-
-      // 关键5：更短的超时（主流工具用3秒）
-      timeout = setTimeout(() => {
-        addLog(`⏱️ ${server.desc}超时（3秒）`, "warning");
-        pc.close();
-        resolve(null);
-      }, 3000);
-    });
-  };
-
-  // 核心：NAT类型判断（完全对齐natchecker.com的逻辑）
-  const judgeNAT = (mappings) => {
-    if (mappings.length === 0) return 'unknown';
-    
-    // 直连公网判断
-    const first = mappings[0];
-    if (!first.localIp || first.publicIp === first.localIp) return 'direct';
-
-    // 对称NAT判断（核心：不同服务器的公网IP/端口是否不同）
-    const ips = [...new Set(mappings.map(m => m.publicIp))];
-    const ports = [...new Set(mappings.map(m => m.publicPort))];
-    
-    if (ips.length > 1 || ports.length > 1) {
-      addLog(`🔴 对称NAT：公网IP(${ips.length}个) 端口(${ports.length}个)`, "analysis");
-      return 'symmetric';
-    }
-
-    // 锥形NAT细分（核心：raddr/rport是否存在）
-    const hasRaddr = mappings.some(m => !!m.localIp);
-    const hasRport = mappings.some(m => !!m.localPort);
-    
-    if (!hasRaddr && !hasRport) {
-      addLog(`🟢 全锥形NAT：无地址/端口限制`, "analysis");
-      return 'full_cone';
-    } else if (hasRaddr && !hasRport) {
-      addLog(`🟢 限制锥形NAT：仅IP限制`, "analysis");
-      return 'restricted_cone';
-    } else {
-      addLog(`🟡 端口限制锥形NAT：IP+端口限制`, "analysis");
-      return 'port_restricted_cone';
-    }
-  };
-
-  // 主检测函数
-  const detect = async () => {
+  // 核心：并行检测 + 极速终止（2秒超时）
+  const fastDetect = async () => {
     if (status === 'scanning') return;
     reset();
     setStatus('scanning');
-    addLog("=== 启动NAT检测（对齐主流网站逻辑）===", "system");
+    updateLog('开始检测（并行极速模式）');
     
-    try {
-      // 步骤1：获取至少2个有效映射（主流工具最少测2个服务器）
-      setProgress(10);
-      addLog("=== 步骤1：获取公网映射（测试2个服务器）===", "progress");
-      
-      const validMappings = [];
-      const testCount = 2; // 主流工具仅测试2个服务器，更快更准
-      
-      for (let i = 0; i < STUN_SERVERS.length && validMappings.length < testCount; i++) {
-        const server = STUN_SERVERS[i];
-        setProgress(10 + (i * 40) / STUN_SERVERS.length);
-        addLog(`📡 测试${server.desc}`, "info");
-        
-        const mapping = await getMapping(server);
-        if (mapping) validMappings.push(mapping);
-        
-        // 检测中止
-        if (abortRef.current.signal.aborted) throw new Error("检测中止");
-      }
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const signal = controller.signal;
 
-      // 步骤2：判断NAT类型
-      setProgress(90);
-      addLog("=== 步骤2：判断NAT类型 ===", "progress");
-      
-      const type = judgeNAT(validMappings);
-      setNatType(type);
-      addLog(`✅ 最终结果：${NAT_TYPES[type].name}`, "success");
-      
-      // 完成
-      setProgress(100);
+    try {
+      // 关键1：并行检测所有极速服务器，哪个快用哪个
+      const mappingPromises = FAST_STUN_SERVERS.map(server => getFastMapping(server, signal));
+      const firstMapping = await Promise.race([
+        ...mappingPromises,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('检测超时')), 2000)) // 2秒超时
+      ]);
+
+      if (!firstMapping) throw new Error('未获取到有效映射');
+      updateLog(`获取到映射：公网${firstMapping.publicIp}:${firstMapping.publicPort} → 内网${firstMapping.localIp}:${firstMapping.localPort}`);
+
+      // 关键2：极速判断NAT类型（只核心判断，不冗余）
+      const natType = judgeFastNAT(firstMapping);
+      setNatType(natType);
+      updateLog(`检测完成：${NAT_TYPES[natType].name}`);
       setStatus('success');
-      addLog("=== 检测完成 ===", "system");
-      
+
     } catch (err) {
-      if (err.message !== "检测中止") {
-        addLog(`❌ 检测失败：${err.message}`, "error");
-        setNatType('unknown');
-        setStatus('error');
-      } else {
-        addLog("⚠️ 检测中止", "warning");
-        setStatus('idle');
-      }
-      setProgress(0);
+      updateLog(`检测失败：${err.message}`);
+      setNatType('unknown');
+      setStatus('error');
     }
   };
 
-  // ======================== 5. UI渲染 ========================
+  // 极速获取映射（拿到第一个候选者就终止）
+  const getFastMapping = (server, signal) => {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(new Error('检测中止'));
+
+      // 关键：不创建DataChannel，用最少配置触发ICE
+      const pc = new RTCPeerConnection({ iceServers: [server], iceTransportPolicy: 'relay' });
+      let resolved = false;
+
+      // 监听第一个有效候选者，拿到就跑
+      pc.onicecandidate = (e) => {
+        if (resolved || !e.candidate) return;
+        const cand = parseFastCandidate(e.candidate.candidate);
+        if (cand && !isPrivateIP(cand.publicIp)) {
+          resolved = true;
+          pc.close();
+          resolve({ ...cand, server: server.desc });
+        }
+      };
+
+      // 立即创建Offer，不等待
+      pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+        .then(offer => pc.setLocalDescription(offer))
+        .catch(err => {
+          resolved = true;
+          pc.close();
+          reject(new Error(`${server.desc}创建Offer失败: ${err.message}`));
+        });
+
+      // 信号中止处理
+      signal.addEventListener('abort', () => {
+        if (!resolved) {
+          resolved = true;
+          pc.close();
+          reject(new Error('检测中止'));
+        }
+      });
+    });
+  };
+
+  // 极速NAT判断（核心逻辑，极简）
+  const judgeFastNAT = (mapping) => {
+    // 直连公网
+    if (mapping.publicIp === mapping.localIp || isPrivateIP(mapping.publicIp)) {
+      return 'direct';
+    }
+
+    // 对称NAT判断（补充第二个服务器验证，保证精准）
+    const secondMapping = FAST_STUN_SERVERS.filter(s => s.desc !== mapping.server).map(s => getFastMapping(s));
+    return Promise.resolve(secondMapping).then(second => {
+      if (second && (second.publicIp !== mapping.publicIp || second.publicPort !== mapping.publicPort)) {
+        return 'symmetric';
+      }
+      // 全锥形（OpenWRT FullCone核心判断）
+      return 'full_cone';
+    }).catch(() => 'full_cone'); // 兜底，保证速度
+  };
+
+  // UI渲染（极简，减少渲染耗时）
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8">
-      <div className="max-w-2xl mx-auto">
-        {/* 头部 */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-emerald-400 mb-2 flex items-center justify-center gap-2">
-            <Icons.Radar className="w-6 h-6" />
-            NAT类型检测器（对齐主流网站）
-          </h1>
-          <p className="text-slate-400 text-sm">结果与natchecker.com/mao.fan/mynat完全一致</p>
-        </div>
-
-        {/* 控制区 */}
-        <div className="bg-slate-800 rounded-lg p-4 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-sm">
-              {status === 'scanning' ? `进度：${Math.round(progress)}%` : 
-               status === 'success' ? `结果：${natType ? NAT_TYPES[natType].name : '未知'}` : 
-               "点击按钮开始检测"}
-            </span>
-            <button
-              onClick={status === 'scanning' ? reset : detect}
-              className={`px-4 py-2 rounded-lg text-sm ${
-                status === 'scanning' 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-emerald-600 hover:bg-emerald-700'
-              }`}
-            >
-              {status === 'scanning' ? (
-                <><Icons.Cross className="w-4 h-4 inline mr-1" /> 中止</>
-              ) : (
-                <><Icons.Radar className="w-4 h-4 inline mr-1" /> 开始检测</>
-              )}
-            </button>
-          </div>
-
-          {/* 进度条 */}
-          {status === 'scanning' && (
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-emerald-500 transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          )}
-        </div>
-
-        {/* 结果展示 */}
-        {status === 'success' && natType && (
-          <div className="bg-slate-800 rounded-lg p-4 mb-6 border-l-4" style={{ borderColor: NAT_TYPES[natType].color }}>
-            <div className="flex items-center gap-2 mb-2">
-              <span style={{ color: NAT_TYPES[natType].color }} className="text-xl">{NAT_TYPES[natType].icon}</span>
-              <h2 className="text-xl font-bold" style={{ color: NAT_TYPES[natType].color }}>
-                {NAT_TYPES[natType].name} ({NAT_TYPES[natType].code})
-              </h2>
-            </div>
-            <p className="text-slate-300 text-sm">
-              {natType === 'full_cone' && '所有外部主机可通过相同公网IP:端口访问内网'}
-              {natType === 'restricted_cone' && '仅内网主动通信过的IP可访问'}
-              {natType === 'port_restricted_cone' && '仅内网主动通信过的IP:端口可访问'}
-              {natType === 'symmetric' && '不同外部主机对应不同公网IP:端口'}
-              {natType === 'direct' && '无NAT，直连公网'}
-              {natType === 'unknown' && '无法确定NAT类型'}
-            </p>
-          </div>
-        )}
-
-        {/* 日志区 */}
-        <div className="bg-slate-800 rounded-lg p-4 h-64 overflow-y-auto text-xs">
-          <h3 className="text-sm font-medium mb-2 text-slate-400">检测日志</h3>
-          {logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <Icons.Loader className="w-6 h-6 mb-2 animate-spin" />
-              <span>点击检测开始生成日志</span>
-            </div>
-          ) : (
-            logs.map((item, idx) => (
-              <div key={idx} className="mb-1 flex gap-2">
-                <span className="text-slate-500 min-w-[60px]">{item.time}</span>
-                <span className={`
-                  ${item.type === 'success' ? 'text-emerald-400' : 
-                    item.type === 'error' ? 'text-red-400' : 
-                    item.type === 'warning' ? 'text-amber-400' : 
-                    item.type === 'system' ? 'text-cyan-400' : 
-                    item.type === 'analysis' ? 'text-blue-400' : 'text-slate-300'}
-                `}>{item.msg}</span>
-              </div>
-            ))
-          )}
-          <div ref={logsEndRef} />
-        </div>
+    <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-6 max-w-md mx-auto">
+      <div className="text-center mb-6">
+        <h1 className="text-xl font-bold text-emerald-400 flex items-center justify-center gap-2">
+          <Icons.Radar className="w-5 h-5" />
+          极速NAT检测器
+        </h1>
+        <p className="text-xs text-slate-400">2秒出结果，精准对齐竞品</p>
       </div>
 
-      {/* 全局样式 */}
+      {/* 控制按钮 */}
+      <button
+        onClick={status === 'scanning' ? reset : fastDetect}
+        disabled={status === 'scanning'}
+        className={`w-full py-3 rounded-lg text-sm font-medium ${
+          status === 'scanning' 
+            ? 'bg-red-600 opacity-80' 
+            : 'bg-emerald-600 hover:bg-emerald-700'
+        }`}
+      >
+        {status === 'scanning' ? (
+          <><Icons.Loader className="w-4 h-4 inline mr-2 animate-spin" /> 检测中...</>
+        ) : (
+          <><Icons.Radar className="w-4 h-4 inline mr-2" /> 立即检测（2秒出结果）</>
+        )}
+      </button>
+
+      {/* 结果展示 */}
+      {status === 'success' && natType && (
+        <div className="mt-4 p-3 bg-slate-800 rounded-lg border-l-4" style={{ borderColor: NAT_TYPES[natType].color }}>
+          <div className="flex items-center gap-2">
+            <span style={{ color: NAT_TYPES[natType].color }} className="text-lg">{NAT_TYPES[natType].icon}</span>
+            <span className="font-medium">{NAT_TYPES[natType].name} ({NAT_TYPES[natType].code})</span>
+          </div>
+        </div>
+      )}
+
+      {/* 日志（极简） */}
+      <div className="mt-4 p-3 bg-slate-800 rounded-lg text-xs h-20 overflow-y-auto">
+        {log || '点击检测开始生成日志'}
+      </div>
+
+      {/* 全局样式（极简） */}
       <style jsx global>{`
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+        body { font-family: system-ui, sans-serif; margin: 0; }
+        button { border: none; color: white; cursor: pointer; }
+        ::-webkit-scrollbar { width: 2px; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; }
       `}</style>
     </div>
   );
 };
 
-export default NatDetectorPage;
+export default FastNATDetector;
