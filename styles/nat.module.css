@@ -2,11 +2,9 @@
 .container {
   min-height: 100vh;
   padding: 2rem 1rem;
-  // 这里的颜色和背景需要根据你的博客主题进行调整，
-  // 原始代码是为深色模式设计的。如果你使用浅色主题，
-  // 请删除或修改下面两行。
-  /* background-color: #121212; */
-  /* color: #e0e0e0; */
+  /* 如果你的博客是浅色主题，请去掉下面两行的注释 */
+  /* background-color: #f0f2f5; */
+  /* color: #333; */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,32 +26,38 @@
 }
 
 .card {
-  // 同样，这里的背景色也是为深色模式设计的。
-  // 如果是浅色模式，可以改为 #ffffff 或其他浅色。
-  background-color: rgba(255, 255, 255, 0.05); 
+  /* 卡片背景色，深色模式下建议用半透明白，浅色模式下用白色 */
+  background-color: rgba(255, 255, 255, 0.1); 
+  /* 如果是浅色模式，取消下面这行的注释并注释掉上面那行 */
+  /* background-color: #ffffff; */
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px); /* 毛玻璃效果 */
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card:hover {
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-5px);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
 }
 
 .resultHeader {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     flex-wrap: wrap;
 }
 
 .natTypeHighlight {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #3b82f6; /* 蓝色高亮 */
+    font-size: 2.2rem;
+    font-weight: 900;
+    /* 使用渐变色让文字更突出 */
+    background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin: 0 15px;
     text-align: center;
 }
@@ -65,93 +69,107 @@
 
 .detailsGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
     margin-top: 1rem;
 }
 
 .detailItem {
     background-color: rgba(0, 0, 0, 0.2);
-    padding: 1.2rem;
-    border-radius: 8px;
+    /* 浅色模式 */
+    /* background-color: #f9fafb; */
+    padding: 1.5rem;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    border: 1px solid rgba(255,255,255,0.05);
 }
 
 .detailLabel {
     font-size: 0.9rem;
-    opacity: 0.8;
-    margin-bottom: 0.5rem;
+    opacity: 0.7;
+    margin-bottom: 0.8rem;
     display: flex;
     align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .detailValue {
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     font-weight: bold;
-    font-family: monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    word-break: break-all;
 }
 
 .button {
-  padding: 1rem 2rem;
+  padding: 1rem 2.5rem;
   font-size: 1.1rem;
   font-weight: bold;
   color: white;
-  background-color: #3b82f6;
+  /* 漂亮的蓝色渐变按钮 */
+  background: linear-gradient(to right, #2563eb, #3b82f6);
   border: none;
   border-radius: 50px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
   outline: none;
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   align-self: center;
-  width: 100%;
-  max-width: 300px;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.5);
 }
 
 .button:hover {
-  background-color: #2563eb;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.6);
+  transform: translateY(-2px);
 }
 
 .button:disabled {
-  background-color: #9ca3af;
+  background: #9ca3af;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .loading, .error {
     text-align: center;
     font-size: 1.1rem;
-    padding: 2rem;
+    padding: 3rem 2rem;
+    font-weight: 500;
 }
 
 .error {
-    color: #ef4444;
-    background-color: rgba(239, 68, 68, 0.1);
-    border-radius: 8px;
-    border: 1px solid #ef4444;
+    color: #b91c1c;
+    background-color: #fef2f2;
+    border-radius: 12px;
+    border: 1px solid #fecaca;
 }
 
 .infoSection {
-    margin-top: 2rem;
+    margin-top: 3rem;
 }
 
 .infoTitle {
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    margin-bottom: 1.2rem;
     font-weight: bold;
+    display: flex;
+    align-items: center;
 }
 
 .infoText {
     font-size: 1rem;
-    line-height: 1.7;
+    line-height: 1.8;
     opacity: 0.9;
 }
 
 .infoText ul {
     padding-left: 20px;
-    margin-top: 10px;
+    margin-top: 15px;
 }
 
 .infoText li {
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
+    padding-left: 0.5rem;
 }
