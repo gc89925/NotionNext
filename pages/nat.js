@@ -1,280 +1,379 @@
 // pages/nat.js
 import { useState, useEffect, useRef } from 'react';
 
-export default function LocalNatTester() {
+// -----------------------------------------------------------------------------
+// 内嵌 SVG 图标组件 (无需安装依赖，直接可用)
+// -----------------------------------------------------------------------------
+const Icons = {
+  Copy: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+  ),
+  Check: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  ),
+  Cross: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  ),
+  Wifi: () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+  ),
+  Game: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 12h4"></path><path d="M8 10v4"></path><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
+  ),
+  Zap: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+  )
+};
+
+export default function NatTester() {
   const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState([]);
   const [result, setResult] = useState(null);
+  const [copyFeedback, setCopyFeedback] = useState(null);
   const peerConnectionRef = useRef(null);
 
-  // 添加日志的辅助函数
-  const addLog = (msg) => {
-    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
-
-  const detectNatType = async () => {
+  // 核心检测逻辑
+  const startTest = async () => {
     if (loading) return;
     setLoading(true);
-    setLogs([]);
     setResult(null);
-    addLog("🚀 开始初始化 WebRTC...");
-    addLog("🌐 正在准备连接国内公共 STUN 服务器...");
 
-    // =================================================================
-    // 🔥 核心修改点：配置国内可访问的 STUN 服务器列表
-    // =================================================================
-    // 浏览器会尝试连接列表中的服务器，直到找到一个可用的。
-    // 这些是国内大厂提供的免费公共节点，在国内访问通常比较稳定。
     const config = {
       iceServers: [
-        // 腾讯
         { urls: 'stun:stun.qq.com:3478' },
-        // 小米
         { urls: 'stun:stun.miwifi.com:3478' },
-        // Bilibili (哔哩哔哩)
-        { urls: 'stun:stun.chat.bilibili.com:3478' },
-        // 湖南卫视
-        { urls: 'stun:stun.hitv.com:3478' },
-        // 备用：某些地区的运营商可能能连上 Cloudflare
-        { urls: 'stun:stun.cloudflare.com:3478' }
-      ],
-      // 请求更频繁的收集，提高成功率
-      iceCandidatePoolSize: 10
+        { urls: 'stun:stun.chat.bilibili.com:3478' }
+      ]
     };
-    // =================================================================
 
     try {
-        const pc = new RTCPeerConnection(config);
-        peerConnectionRef.current = pc;
-        
-        const candidates = [];
-        let publicIp = null;
-        let publicPort = null;
+      const pc = new RTCPeerConnection(config);
+      peerConnectionRef.current = pc;
+      pc.createDataChannel('test');
 
-        // 创建一个数据通道，这是触发浏览器收集 ICE 候选所必须的
-        pc.createDataChannel('nat-test', { ordered: true });
-        addLog("✅ WebRTC 实例创建完成，数据通道已开启。");
+      let publicIp = null;
+      const candidates = [];
 
-        // 监听连接状态变化
-        pc.oniceconnectionstatechange = () => {
-             addLog(`📡 连接状态变更: ${pc.iceConnectionState}`);
-        };
+      pc.onicecandidate = (e) => {
+        if (!e.candidate) {
+          analyze(candidates, publicIp);
+          return;
+        }
+        const { candidate, type, protocol, address } = e.candidate;
+        if (protocol === 'udp') {
+            candidates.push(e.candidate);
+            if (type === 'srflx' && !publicIp) publicIp = address;
+        }
+      };
 
-        // 监听 ICE 候选收集事件 (核心逻辑)
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            const { candidate, type, protocol, address, port } = event.candidate;
-            // 我们只关注 UDP 协议，因为 TCP 通常用于最后的后备手段，无法准确反映 NAT 类型
-            if (protocol !== 'udp') {
-                addLog(`ℹ️ 忽略非 UDP 候选: ${protocol}://${address}:${port} (${type})`);
-                return;
-            }
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-            addLog(`🔍 收集到 UDP 候选地址: ${address}:${port} [类型:${type}]`);
-            candidates.push(event.candidate);
+      setTimeout(() => {
+        if (peerConnectionRef.current && peerConnectionRef.current.iceConnectionState !== 'closed') {
+           if (!result) analyze(candidates, publicIp);
+        }
+      }, 5000);
 
-            // 'srflx' (server reflex) 类型表示通过 STUN 服务器反射得到的公网地址
-            // 如果我们拿到了这个类型的地址，说明成功连接上了至少一个 STUN 服务器
-            if (type === 'srflx' && !publicIp) {
-              publicIp = address;
-              publicPort = port;
-              addLog(`🎉【成功】通过 STUN 服务器获取到本地公网 IP: ${publicIp}`);
-            }
-          } else {
-            // event.candidate 为 null 时，表示所有候选收集完毕
-            addLog("🏁 ICE 候选收集过程结束。开始分析结果...");
-            analyzeCandidates(candidates, publicIp, publicPort);
-          }
-        };
-
-        // 创建一个 Offer 来启动收集流程
-        const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
-        await pc.setLocalDescription(offer);
-        addLog("⏳ 已设置本地描述 (SDP)，浏览器正在向 STUN 服务器发起请求...");
-
-    } catch (e) {
-      addLog(`❌ 初始化阶段发生严重的未知错误: ${e.message}`);
+    } catch (err) {
+      console.error(err);
       setLoading(false);
     }
-
-    // 设置一个15秒的超时兜底，防止因为网络完全不通导致一直卡住
-    setTimeout(() => {
-        if (peerConnectionRef.current && ['new', 'checking'].includes(peerConnectionRef.current.iceConnectionState)) {
-            addLog("⚠️ 检测超时 (15秒)。如果您的网络非常严格或完全断网，可能会发生这种情况。强制结束收集。");
-            if (peerConnectionRef.current.iceGatheringState !== 'complete') {
-                 // 强制关闭连接，触发 onicecandidate(null) 或手动分析
-                 analyzeCandidates(candidates, publicIp, publicPort);
-            }
-        }
-    }, 15000); 
   };
 
-  // 分析收集到的候选地址，推断 NAT 类型
-  const analyzeCandidates = (candidates, publicIp, publicPort) => {
+  const analyze = (candidates, ip) => {
     if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
     }
 
-    // 筛选出所有成功的 UDP 公网映射候选 (server reflex)
-    const srflxCandidates = candidates.filter(c => c.type === 'srflx' && c.protocol === 'udp');
-    
-    let natType = "检测失败 / 网络阻断";
-    let detectedIp = publicIp || "未检测到";
-    let detectedPort = publicPort || "未检测到";
-    let resultStatus = "fail"; // success, warning, fail
+    const srflx = candidates.filter(c => c.type === 'srflx');
+    let type = "检测失败";
+    let status = "fail";
+    let score = 0;
 
-    if (srflxCandidates.length > 0) {
-        // 成功获取到了公网地址
-        detectedIp = publicIp;
-        
-        // 获取所有映射出的公网端口
-        const ports = srflxCandidates.map(c => c.port);
-        // 使用 Set 去重，看看映射了几个不同的端口
-        const uniquePorts = new Set(ports);
-
-        addLog(`📊 分析报告: 成功从 ${srflxCandidates.length} 个响应中提取到公网信息。共映射了 ${uniquePorts.size} 个不同的外部端口。`);
-
-        if (uniquePorts.size > 1) {
-            // 如果浏览器连接不同的 STUN 服务器（IP不同或端口不同），路由器映射的外部端口不一样，这就是对称型 NAT
-            natType = "Symmetric NAT (NAT4)";
-            resultStatus = "fail"; // 用红色强调最差
+    if (srflx.length > 0) {
+        const ports = new Set(srflx.map(c => c.port));
+        if (ports.size > 1) {
+            type = "NAT4: 对称型 (Symmetric)";
+            status = "fail";
+            score = 30;
         } else {
-            // 如果无论连接哪个 STUN 服务器，路由器映射的外部端口都一样，这就是锥形 NAT
-            // 注意：纯浏览器环境无法精确区分 全锥形(Full) / 受限锥形(Restricted) / 端口受限锥形(Port-Restricted)
-            // 因为这需要向特定的 IP/端口发送数据包来测试防火墙规则，浏览器处于安全沙箱中无法做到这一点。
-            // 但通常来说，只要不是对称型，对大部分应用来说已经足够好。
-            natType = "Cone NAT (NAT 1-3)";
-            resultStatus = "success"; // 用绿色强调较好
+            type = "NAT1-3: 锥形 (Cone)";
+            status = "success";
+            score = 90;
         }
     } else {
-        if (candidates.some(c => c.type === 'host')) {
-             addLog("⚠️ 仅收集到本地网络候选 (host)，没有获取到公网候选 (srflx)。说明无法穿透到公网。");
-        } else {
-             addLog("❌ 没有收集到任何有效的网络候选。WebRTC 可能被浏览器禁用或网络完全不可用。");
-        }
+        type = "无法连接 STUN (请关闭代理)";
     }
-    
-    setResult({ type: natType, ip: detectedIp, port: detectedPort, status: resultStatus });
+
+    setResult({ type, ip: ip || "未知", status, score });
     setLoading(false);
   };
 
-  // 组件卸载时清理 WebRTC 连接资源
-  useEffect(() => {
-    return () => {
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-    };
-  }, []);
+  const copyToClipboard = (text, type) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyFeedback(type);
+      setTimeout(() => setCopyFeedback(null), 2000);
+    });
+  };
 
   return (
-    <div className="container">
-      <div className="card main-card">
-        <h1><span style={{color:'#4F46E5'}}>⚡</span> NAT 类型检测</h1>
-        
-        {!result && (
-            <button onClick={detectNatType} disabled={loading} className={`btn ${loading ? 'loading-btn' : ''}`}>
-            {loading ? '正在检测中...' : '开始检测'}
-            </button>
-        )}
+    <div className="page-container">
+      {/* 头部区域 */}
+      <div className="header-section">
+        <h1 className="main-title">NAT 类型检测工具</h1>
+        <p className="sub-title">点击下方按钮开始检测您的网络配置，免费的游戏和网络NAT类型测试工具。</p>
+      </div>
 
-        {result && (
-            <div className="result-box fadeIn">
-                
-                <div className="result-item">
-                    <div className="result-label">NAT 类型:</div>
-                    <div className="result-value" style={{
-                         color: result.status === 'fail' ? '#cf1322' : 
-                                result.status === 'success' ? '#389e0d' : 'inherit'
-                    }}>{result.type}</div>
-                </div>
-                
-                <div className="result-item">
-                    <div className="result-label">公网 IP:</div>
-                    <div className="result-value">{result.ip}</div>
-                </div>
+      {/* 核心操作区 */}
+      <div className="action-section">
+        <button 
+          onClick={startTest} 
+          disabled={loading} 
+          className={`start-btn ${loading ? 'loading' : ''}`}
+        >
+          <Icons.Wifi />
+          <span>{loading ? '正在检测中...' : '开始检测'}</span>
+        </button>
+      </div>
 
-                <div className="result-item">
-                    <div className="result-label">端口:</div>
-                    <div className="result-value">{result.port}</div>
-                </div>
-
-                <div style={{textAlign: 'center', fontSize: '2em', margin: '20px 0'}}>🎉</div>
-                <div style={{textAlign: 'center', color: '#666'}}>当前网络类型：{result.status === 'success' ? 'NAT1' : result.status === 'fail' ? 'NAT4' : 'NAT2/3'}</div>
-                
-                <button onClick={detectNatType} className="btn retry-btn">重新检测</button>
+      {/* 结果展示卡片 - 仅在有结果时显示 */}
+      {result && (
+        <div className="result-card fade-in">
+          {/* 基础信息 */}
+          <div className="info-group">
+            <div className="info-label">NAT 类型</div>
+            <div className="info-row">
+              <span className={`info-value ${result.status === 'success' ? 'text-green' : 'text-red'}`}>
+                {result.type}
+              </span>
+              <button className="icon-btn" onClick={() => copyToClipboard(result.type, 'type')}>
+                 {copyFeedback === 'type' ? <Icons.Check /> : <Icons.Copy />}
+              </button>
             </div>
-        )}
+          </div>
 
-      </div>
-      
-      <div className="card info-card">
-        <h2>ⓘ 关于 NAT 类型</h2>
-        <p style={{color: '#666', fontSize: '0.9em', lineHeight: '1.6'}}>网络地址转换 (NAT) 影响着您与其他互联网用户的连接能力，并影响着为您提供连接的质量。以及NAT类型对您网络的影响。您在缓冲视频时就可能遭受了这个问题的困扰。关于四种类型的访问:</p>
-        <ul>
-            <li><strong>Full Cone (NAT1):</strong> 最佳。完全开放，任何外部主机均可访问。</li>
-            <li><strong>Restricted Cone (NAT2):</strong> 较好。仅允许您发送过数据的 IP 回传数据。</li>
-            <li><strong>Port-Restricted Cone (NAT3):</strong> 一般。限制更严，要求外部 IP 和端口都匹配。</li>
-            <li><strong>Symmetric (NAT4):</strong> 最差。对每个外部目标使用不同的映射，P2P 困难。</li>
-        </ul>
+          <div className="info-group">
+            <div className="info-label">公网 IP</div>
+            <div className="info-row">
+              <span className="info-value text-blue">{result.ip}</span>
+              <button className="icon-btn" onClick={() => copyToClipboard(result.ip, 'ip')}>
+                {copyFeedback === 'ip' ? <Icons.Check /> : <Icons.Copy />}
+              </button>
+            </div>
+          </div>
+
+          <div className="divider"></div>
+
+          {/* 网络开放度 */}
+          <div className="score-section">
+            <div className="score-header">
+               <span><Icons.Zap /> 网络开放度</span>
+               <span className={result.status === 'success' ? 'text-green' : 'text-red'}>{result.score}%</span>
+            </div>
+            <div className="progress-bg">
+               <div className="progress-bar" style={{width: `${result.score}%`, background: result.status === 'success' ? '#10b981' : '#ef4444'}}></div>
+            </div>
+            <p className="score-desc">
+              {result.status === 'success' 
+                ? '锥形 NAT 提供优秀的连接性，支持所有类型的网络应用和游戏功能。' 
+                : '对称型 NAT 限制较多，可能导致 P2P 联机困难或游戏匹配时间变长。'}
+            </p>
+          </div>
+
+          <div className="divider"></div>
+
+          {/* 功能支持列表 */}
+          <div className="feature-grid">
+             <div className="feature-item">
+               <span className="icon-wrap">{result.status === 'success' ? <Icons.Check /> : <Icons.Cross />}</span>
+               <span>P2P 连接</span>
+             </div>
+             <div className="feature-item">
+               <span className="icon-wrap">{result.status === 'success' ? <Icons.Check /> : <Icons.Cross />}</span>
+               <span>主机房间</span>
+             </div>
+             <div className="feature-item">
+               <span className="icon-wrap"><Icons.Check /></span>
+               <span>语音聊天</span>
+             </div>
+             <div className="feature-item">
+               <span className="icon-wrap"><Icons.Check /></span>
+               <span>直播推流</span>
+             </div>
+          </div>
+
+          <div className="divider"></div>
+
+          {/* 主机兼容性 */}
+          <div className="console-section">
+             <div className="console-header"><Icons.Game /> 游戏主机兼容性</div>
+             <div className="console-grid">
+               <div className="console-item">
+                 <span>Xbox</span>
+                 <span className={`status-badge ${result.status === 'success' ? 'bg-green' : 'bg-red'}`}>
+                    {result.status === 'success' ? '优秀' : '受限'}
+                 </span>
+               </div>
+               <div className="console-item">
+                 <span>PS5</span>
+                 <span className={`status-badge ${result.status === 'success' ? 'bg-green' : 'bg-red'}`}>
+                    {result.status === 'success' ? '优秀' : '受限'}
+                 </span>
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 常见问题区域 */}
+      <div className="faq-section">
+         <h2 className="faq-title">常见问题</h2>
+         
+         <div className="faq-card">
+            <h3>什么是 NAT 类型?</h3>
+            <p>NAT (网络地址转换) 描述了路由器如何转换私有地址以及外部网络对您的可达性。标准分类包括：</p>
+            <ul>
+               <li><strong>开放网络 (无NAT):</strong> 直接公网IP。</li>
+               <li><strong>全锥型 (Full Cone):</strong> 一对一映射，任何外部主机都能访问映射端口。</li>
+               <li><strong>IP限制型 (Restricted Cone):</strong> 仅允许您发送过数据的IP回传数据。</li>
+               <li><strong>对称型 (Symmetric NAT):</strong> 针对不同目的地址生成不同映射，最不利于P2P。</li>
+            </ul>
+         </div>
+
+         <div className="faq-card">
+            <h3>标准 NAT 与 PS5 的 NAT Type 如何对应?</h3>
+            <p>两者并非严格一一映射，但通常可参考：</p>
+            <ul>
+               <li>开放网络/全锥型 → 常对应 PS5 NAT Type 1 (开放)。</li>
+               <li>IP限制/端口限制 → 在 UPnP 有效时多表现为 Type 2 (中等)。</li>
+               <li>对称型或 CGNAT → 常表现为 Type 3 (严格)。</li>
+            </ul>
+         </div>
+
+         <div className="faq-card">
+            <h3>如何改善 NAT 类型?</h3>
+            <ol>
+               <li>启用路由器的 UPnP 功能 (最推荐)。</li>
+               <li>配置端口转发 (Port Forwarding)。</li>
+               <li>将设备设置为 DMZ 主机 (注意安全风险)。</li>
+               <li>联系网络服务提供商申请公网 IP。</li>
+            </ol>
+         </div>
       </div>
 
-      {/* CSS 样式 */}
       <style jsx>{`
-        .container {
-          display: flex; flex-direction: column; align-items: center;
-          min-height: 100vh; padding: 20px; background: #f0f2f5;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        /* 全局容器：深色背景 */
+        .page-container {
+          min-height: 100vh;
+          background: #1f2937; /* 深灰蓝背景 */
+          color: #e5e7eb;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 2rem 1rem;
         }
-        .card {
-          background: white; padding: 30px; border-radius: 12px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-          width: 100%; max-width: 600px;
-          margin-bottom: 20px;
-        }
-        .main-card {
-            text-align: center;
-            background: #1a1a1a;
-            color: white;
-        }
-        .info-card {
-            background: #fff;
-            color: #333;
-        }
-        h1 { margin: 0 0 20px 0; font-size: 1.8em; text-align: center; }
-        h2 { margin: 0 0 15px 0; font-size: 1.2em; }
-        .btn {
-          width: 100%; padding: 14px; border: none; border-radius: 8px;
-          background: #1890ff; color: white; font-size: 1.1em; font-weight: 600; cursor: pointer;
-          transition: all 0.2s;
-        }
-        .btn:hover:not(:disabled) { background: #40a9ff; }
-        .btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
-        .loading-btn { opacity: 0.8; }
-        .retry-btn { margin-top: 20px; background: #595959; }
-        .retry-btn:hover { background: #8c8c8c; }
 
-        .result-box { margin-top: 20px; text-align: left; }
-        .fadeIn { animation: fadeIn 0.5s ease-in; }
+        /* 头部 */
+        .header-section { text-align: center; margin-bottom: 2rem; max-width: 600px; }
+        .main-title { 
+            font-size: 2rem; 
+            font-weight: 800; 
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sub-title { color: #9ca3af; font-size: 0.95rem; line-height: 1.5; }
+
+        /* 按钮区域 */
+        .action-section { margin-bottom: 2rem; width: 100%; max-width: 400px; }
+        .start-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6); }
+        .start-btn:active { transform: translateY(0); }
+        .start-btn:disabled { opacity: 0.7; cursor: wait; }
+        
+        /* 结果卡片 (核心美化部分) */
+        .result-card {
+            background: #111827; /* 更深的卡片背景 */
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+            margin-bottom: 3rem;
+        }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .result-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #333;
-        }
-        .result-label {
-            color: #aaa;
-        }
-        .result-value {
-            font-weight: bold;
-            font-family: monospace;
-        }
+        .info-group { margin-bottom: 1rem; }
+        .info-label { color: #10b981; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; }
+        .info-value { font-size: 1.25rem; font-weight: bold; font-family: monospace; }
+        .text-green { color: #d1fae5; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+        .text-red { color: #fecaca; text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+        .text-blue { color: #bfdbfe; }
+        
+        .icon-btn { background: rgba(255,255,255,0.05); border: none; color: #9ca3af; padding: 6px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
-        ul { padding-left: 20px; color: #666; font-size: 0.9em; lineHeight: 1.6; }
-        li { margin-bottom: 10px; }
+        .divider { height: 1px; background: #374151; margin: 1.2rem 0; }
+
+        /* 网络开放度进度条 */
+        .score-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-weight: 600; color: #e5e7eb; display: flex; align-items: center; gap: 8px;}
+        .progress-bg { height: 8px; background: #374151; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
+        .progress-bar { height: 100%; transition: width 1s ease-out; }
+        .score-desc { font-size: 0.8rem; color: #6b7280; line-height: 1.4; }
+
+        /* 功能网格 */
+        .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .feature-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #d1d5db; }
+        .icon-wrap { display: flex; align-items: center; }
+
+        /* 主机兼容性 */
+        .console-header { margin-bottom: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .console-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .console-item { 
+            background: #1f2937; padding: 0.75rem; border-radius: 8px; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .bg-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .bg-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+        /* 常见问题区 */
+        .faq-section { width: 100%; max-width: 600px; }
+        .faq-title { text-align: center; color: #818cf8; margin-bottom: 1.5rem; font-size: 1.2rem; border-bottom: 2px solid #818cf8; display: inline-block; padding-bottom: 5px; position: relative; left: 50%; transform: translateX(-50%); }
+        .faq-card {
+            background: #374151;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .faq-card h3 { margin: 0 0 0.5rem; color: #e5e7eb; font-size: 1rem; }
+        .faq-card p { font-size: 0.85rem; color: #9ca3af; margin: 0 0 0.5rem; line-height: 1.6; }
+        .faq-card ul, .faq-card ol { margin: 0; padding-left: 1.2rem; color: #9ca3af; font-size: 0.85rem; }
+        .faq-card li { margin-bottom: 0.3rem; }
       `}</style>
     </div>
   );
