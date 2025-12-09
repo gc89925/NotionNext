@@ -10,7 +10,7 @@ const SERVER_CONFIG = {
 };
 
 export default function NATChecker() {
-  // 状态管理
+  // 状态管理（移除TS泛型，改用纯JS）
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showResultSection, setShowResultSection] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
@@ -21,7 +21,7 @@ export default function NATChecker() {
     3: { text: '等待中...', class: 'text-gray-500' },
     4: { text: '等待中...', class: 'text-gray-500' },
   });
-  const [detectionState, setDetectionState] = useState<'loading' | 'result' | 'error'>('loading');
+  const [detectionState, setDetectionState] = useState('loading'); // 移除TS联合类型，直接用字符串
   const [errorMessage, setErrorMessage] = useState('');
   const [natResult, setNatResult] = useState({
     publicIp: '---',
@@ -39,11 +39,11 @@ export default function NATChecker() {
     tips: [],
   });
 
-  // FAQ折叠状态
-  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  // FAQ折叠状态（移除TS泛型）
+  const [faqOpen, setFaqOpen] = useState(null);
 
   // 引用
-  const resultSectionRef = useRef<HTMLDivElement>(null);
+  const resultSectionRef = useRef(null);
 
   // 初始化
   useEffect(() => {
@@ -52,9 +52,9 @@ export default function NATChecker() {
       setNatResult(prev => ({ ...prev, localIp: ip }));
     });
 
-    // 平滑滚动
-    const handleAnchorClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+    // 平滑滚动（移除TS类型注解）
+    const handleAnchorClick = (e) => {
+      const target = e.target;
       if (target.tagName === 'A' && target.getAttribute('href')?.startsWith('#')) {
         e.preventDefault();
         const targetId = target.getAttribute('href')?.slice(1);
@@ -74,7 +74,7 @@ export default function NATChecker() {
 
   // ---------------------- 工具函数 ----------------------
   // 获取本地IP
-  const getLocalIP = (callback: (ip: string) => void) => {
+  const getLocalIP = (callback) => {
     const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
     if (!RTCPeerConnection) {
       callback('无法获取');
@@ -107,7 +107,7 @@ export default function NATChecker() {
   };
 
   // 更新步骤状态
-  const updateStep = (stepNum: number, progress: number, statusText: string, statusClass: string) => {
+  const updateStep = (stepNum, progress, statusText, statusClass) => {
     setProgress(progress);
     setActiveStep(stepNum);
     setStepStatuses(prev => ({
@@ -124,7 +124,7 @@ export default function NATChecker() {
   };
 
   // NAT类型配置
-  const getNATConfig = (natType: string) => {
+  const getNATConfig = (natType) => {
     const configs = {
       'Full cone NAT': {
         icon: 'fa-globe',
@@ -190,7 +190,7 @@ export default function NATChecker() {
   };
 
   // ---------------------- 核心检测逻辑 ----------------------
-  const detectNATType = (callback: (result: any) => void) => {
+  const detectNATType = (callback) => {
     updateStep(1, 25, '进行中...', 'text-gray-500');
 
     // 验证配置
@@ -200,7 +200,7 @@ export default function NATChecker() {
     }
 
     // 创建WebSocket
-    let ws: WebSocket;
+    let ws;
     try {
       const wsUrl = `ws://${SERVER_CONFIG.serverAIP}:${SERVER_CONFIG.wsPort}`;
       ws = new WebSocket(wsUrl);
@@ -326,7 +326,7 @@ export default function NATChecker() {
   };
 
   // 获取分数颜色
-  const getScoreColorClass = (score: string) => {
+  const getScoreColorClass = (score) => {
     switch (score) {
       case '优秀': return 'text-green-600';
       case '良好': return 'text-blue-600';
@@ -336,7 +336,7 @@ export default function NATChecker() {
     }
   };
 
-  const getScoreColor = (score: string) => {
+  const getScoreColor = (score) => {
     switch (score) {
       case '优秀': return 'green';
       case '良好': return 'blue';
