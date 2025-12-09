@@ -13,7 +13,7 @@ export default function NatTester() {
 
   // 替换为你自己的 VPS Flask API 地址
   // 注意：必须是 HTTPS，否则 Vercel 会阻止请求
-  const API_URL = 'https://你的域名/nat';
+  const API_URL = 'http://nat.laogaofenxiang.com:5000/nat';
 
   const checkNatType = async () => {
     setLoading(true);
