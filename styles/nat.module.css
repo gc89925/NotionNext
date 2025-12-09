@@ -2,9 +2,6 @@
 .container {
   min-height: 100vh;
   padding: 2rem 1rem;
-  /* 如果你的博客是浅色主题，请去掉下面两行的注释 */
-  /* background-color: #f0f2f5; */
-  /* color: #333; */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -26,10 +23,8 @@
 }
 
 .card {
-  /* 卡片背景色，深色模式下建议用半透明白，浅色模式下用白色 */
-  background-color: rgba(255, 255, 255, 0.1); 
-  /* 如果是浅色模式，取消下面这行的注释并注释掉上面那行 */
-  /* background-color: #ffffff; */
+  /* 卡片背景色，适配深色底图，使用半透明白 */
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -39,68 +34,65 @@
 }
 
 .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
 }
 
 .resultHeader {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .natTypeHighlight {
-    font-size: 2.2rem;
-    font-weight: 900;
-    /* 使用渐变色让文字更突出 */
-    background: linear-gradient(45deg, #3b82f6, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0 15px;
-    text-align: center;
+  font-size: 2.2rem;
+  font-weight: 900;
+  background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 15px;
+  text-align: center;
 }
 
 .icon {
-    font-size: 2.5rem;
-    color: #f59e0b; /* 金色图标 */
+  font-size: 2.5rem;
+  color: #f59e0b;
 }
 
 .detailsGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
 .detailItem {
-    background-color: rgba(0, 0, 0, 0.2);
-    /* 浅色模式 */
-    /* background-color: #f9fafb; */
-    padding: 1.5rem;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    border: 1px solid rgba(255,255,255,0.05);
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .detailLabel {
-    font-size: 0.9rem;
-    opacity: 0.7;
-    margin-bottom: 0.8rem;
-    display: flex;
-    align-items: center;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .detailValue {
-    font-size: 1.4rem;
-    font-weight: bold;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    word-break: break-all;
+  font-size: 1.4rem;
+  font-weight: bold;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
 }
 
 .button {
@@ -108,7 +100,6 @@
   font-size: 1.1rem;
   font-weight: bold;
   color: white;
-  /* 漂亮的蓝色渐变按钮 */
   background: linear-gradient(to right, #2563eb, #3b82f6);
   border: none;
   border-radius: 50px;
@@ -132,44 +123,45 @@
   transform: none;
 }
 
-.loading, .error {
-    text-align: center;
-    font-size: 1.1rem;
-    padding: 3rem 2rem;
-    font-weight: 500;
+.loading,
+.error {
+  text-align: center;
+  font-size: 1.1rem;
+  padding: 3rem 2rem;
+  font-weight: 500;
 }
 
 .error {
-    color: #b91c1c;
-    background-color: #fef2f2;
-    border-radius: 12px;
-    border: 1px solid #fecaca;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
 }
 
 .infoSection {
-    margin-top: 3rem;
+  margin-top: 3rem;
 }
 
 .infoTitle {
-    font-size: 1.4rem;
-    margin-bottom: 1.2rem;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
+  font-size: 1.4rem;
+  margin-bottom: 1.2rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
 }
 
 .infoText {
-    font-size: 1rem;
-    line-height: 1.8;
-    opacity: 0.9;
+  font-size: 1rem;
+  line-height: 1.8;
+  opacity: 0.9;
 }
 
 .infoText ul {
-    padding-left: 20px;
-    margin-top: 15px;
+  padding-left: 20px;
+  margin-top: 15px;
 }
 
 .infoText li {
-    margin-bottom: 1rem;
-    padding-left: 0.5rem;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
 }
