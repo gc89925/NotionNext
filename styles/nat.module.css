@@ -1,0 +1,157 @@
+/* styles/nat.module.css */
+.container {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  // 这里的颜色和背景需要根据你的博客主题进行调整，
+  // 原始代码是为深色模式设计的。如果你使用浅色主题，
+  // 请删除或修改下面两行。
+  /* background-color: #121212; */
+  /* color: #e0e0e0; */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.main {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.card {
+  // 同样，这里的背景色也是为深色模式设计的。
+  // 如果是浅色模式，可以改为 #ffffff 或其他浅色。
+  background-color: rgba(255, 255, 255, 0.05); 
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.resultHeader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.natTypeHighlight {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #3b82f6; /* 蓝色高亮 */
+    margin: 0 15px;
+    text-align: center;
+}
+
+.icon {
+    font-size: 2.5rem;
+    color: #f59e0b; /* 金色图标 */
+}
+
+.detailsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.detailItem {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 1.2rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.detailLabel {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.detailValue {
+    font-size: 1.3rem;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.button {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+  background-color: #3b82f6;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  outline: none;
+  margin-top: 1.5rem;
+  align-self: center;
+  width: 100%;
+  max-width: 300px;
+}
+
+.button:hover {
+  background-color: #2563eb;
+}
+
+.button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.loading, .error {
+    text-align: center;
+    font-size: 1.1rem;
+    padding: 2rem;
+}
+
+.error {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+    border-radius: 8px;
+    border: 1px solid #ef4444;
+}
+
+.infoSection {
+    margin-top: 2rem;
+}
+
+.infoTitle {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+.infoText {
+    font-size: 1rem;
+    line-height: 1.7;
+    opacity: 0.9;
+}
+
+.infoText ul {
+    padding-left: 20px;
+    margin-top: 10px;
+}
+
+.infoText li {
+    margin-bottom: 0.8rem;
+}
