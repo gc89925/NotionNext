@@ -49,6 +49,7 @@ export default function LocalNatTester() {
         
         const candidates = [];
         let publicIp = null;
+        let publicPort = null;
 
         // 创建一个数据通道，这是触发浏览器收集 ICE 候选所必须的
         pc.createDataChannel('nat-test', { ordered: true });
@@ -76,12 +77,13 @@ export default function LocalNatTester() {
             // 如果我们拿到了这个类型的地址，说明成功连接上了至少一个 STUN 服务器
             if (type === 'srflx' && !publicIp) {
               publicIp = address;
+              publicPort = port;
               addLog(`🎉【成功】通过 STUN 服务器获取到本地公网 IP: ${publicIp}`);
             }
           } else {
             // event.candidate 为 null 时，表示所有候选收集完毕
             addLog("🏁 ICE 候选收集过程结束。开始分析结果...");
-            analyzeCandidates(candidates, publicIp);
+            analyzeCandidates(candidates, publicIp, publicPort);
           }
         };
 
@@ -101,14 +103,14 @@ export default function LocalNatTester() {
             addLog("⚠️ 检测超时 (15秒)。如果您的网络非常严格或完全断网，可能会发生这种情况。强制结束收集。");
             if (peerConnectionRef.current.iceGatheringState !== 'complete') {
                  // 强制关闭连接，触发 onicecandidate(null) 或手动分析
-                 analyzeCandidates(candidates, publicIp);
+                 analyzeCandidates(candidates, publicIp, publicPort);
             }
         }
     }, 15000); 
   };
 
   // 分析收集到的候选地址，推断 NAT 类型
-  const analyzeCandidates = (candidates, publicIp) => {
+  const analyzeCandidates = (candidates, publicIp, publicPort) => {
     if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
@@ -118,8 +120,8 @@ export default function LocalNatTester() {
     const srflxCandidates = candidates.filter(c => c.type === 'srflx' && c.protocol === 'udp');
     
     let natType = "检测失败 / 网络阻断";
-    let natDesc = "浏览器未能通过 UDP 连接到任何 STUN 服务器。原因可能是：\n1. 您当前没有互联网连接。\n2. 您的防火墙或运营商完全封锁了 UDP 流量。";
     let detectedIp = publicIp || "未检测到";
+    let detectedPort = publicPort || "未检测到";
     let resultStatus = "fail"; // success, warning, fail
 
     if (srflxCandidates.length > 0) {
@@ -135,16 +137,14 @@ export default function LocalNatTester() {
 
         if (uniquePorts.size > 1) {
             // 如果浏览器连接不同的 STUN 服务器（IP不同或端口不同），路由器映射的外部端口不一样，这就是对称型 NAT
-            natType = "Symmetric NAT (对称型 / NAT4)";
-            natDesc = "这是限制最严格的类型。您的路由器对每个外部目标地址都使用不同的映射端口。这对 P2P 联机（如游戏、下载）非常不友好，通常只能作为客户端连接他人，很难作为主机。";
+            natType = "Symmetric NAT (NAT4)";
             resultStatus = "fail"; // 用红色强调最差
         } else {
             // 如果无论连接哪个 STUN 服务器，路由器映射的外部端口都一样，这就是锥形 NAT
             // 注意：纯浏览器环境无法精确区分 全锥形(Full) / 受限锥形(Restricted) / 端口受限锥形(Port-Restricted)
             // 因为这需要向特定的 IP/端口发送数据包来测试防火墙规则，浏览器处于安全沙箱中无法做到这一点。
             // 但通常来说，只要不是对称型，对大部分应用来说已经足够好。
-            natType = "Cone NAT (锥形 / NAT 1-3)";
-            natDesc = "类型较好。包含全锥形、受限锥形等。您的路由器对不同的外部目标使用相同的映射端口。这种类型通常对 P2P 联机比较友好。";
+            natType = "Cone NAT (NAT 1-3)";
             resultStatus = "success"; // 用绿色强调较好
         }
     } else {
@@ -155,7 +155,7 @@ export default function LocalNatTester() {
         }
     }
     
-    setResult({ type: natType, desc: natDesc, ip: detectedIp, status: resultStatus });
+    setResult({ type: natType, ip: detectedIp, port: detectedPort, status: resultStatus });
     setLoading(false);
   };
 
@@ -170,72 +170,80 @@ export default function LocalNatTester() {
 
   return (
     <div className="container">
-      <div className="card">
-        <h1>本地网络 NAT 检测</h1>
-        <p className="subtitle">基于浏览器 WebRTC 技术，直接检测您当前电脑的网络环境。<br/>已优化使用国内 STUN 服务器。</p>
-
+      <div className="card main-card">
+        <h1><span style={{color:'#4F46E5'}}>⚡</span> NAT 类型检测</h1>
+        
         {!result && (
             <button onClick={detectNatType} disabled={loading} className={`btn ${loading ? 'loading-btn' : ''}`}>
-            {loading ? '正在努力检测中 (请稍候)...' : '开始本地检测'}
+            {loading ? '正在检测中...' : '开始检测'}
             </button>
         )}
 
         {result && (
             <div className="result-box fadeIn">
-                <div className="result-header">检测结果</div>
                 
-                <div className="info-item highlight">
-                    <div className="info-label">当前本地公网 IP 地址</div>
-                    <div className="info-value">{result.ip}</div>
-                </div>
-
-                {/* 根据状态显示不同颜色的边框 */}
-                <div className="info-item" style={{
-                    borderLeft: result.status === 'fail' ? '5px solid #ff4d4f' : 
-                                result.status === 'success' ? '5px solid #52c41a' : '5px solid #faad14'
-                }}>
-                    <div className="info-label">推测 NAT 类型</div>
-                    <div className="info-value title" style={{
+                <div className="result-item">
+                    <div className="result-label">NAT 类型:</div>
+                    <div className="result-value" style={{
                          color: result.status === 'fail' ? '#cf1322' : 
                                 result.status === 'success' ? '#389e0d' : 'inherit'
                     }}>{result.type}</div>
-                    <div className="info-desc">{result.desc}</div>
                 </div>
+                
+                <div className="result-item">
+                    <div className="result-label">公网 IP:</div>
+                    <div className="result-value">{result.ip}</div>
+                </div>
+
+                <div className="result-item">
+                    <div className="result-label">端口:</div>
+                    <div className="result-value">{result.port}</div>
+                </div>
+
+                <div style={{textAlign: 'center', fontSize: '2em', margin: '20px 0'}}>🎉</div>
+                <div style={{textAlign: 'center', color: '#666'}}>当前网络类型：{result.status === 'success' ? 'NAT1' : result.status === 'fail' ? 'NAT4' : 'NAT2/3'}</div>
                 
                 <button onClick={detectNatType} className="btn retry-btn">重新检测</button>
             </div>
         )}
-        
-        <div className="log-box">
-            <div className="log-title">检测日志 (Debug) - 如果失败请截图此区域</div>
-            <div className="log-container">
-            {logs.length === 0 ? <div className="log-empty">点击开始按钮查看详细检测过程...</div> : 
-             logs.map((log, index) => {
-                 let className = "log-entry";
-                 if (log.includes("✅") || log.includes("🎉")) className += " log-success";
-                 if (log.includes("❌") || log.includes("⚠️")) className += " log-error";
-                 return <div key={index} className={className}>{log}</div>;
-             })
-            }
-            </div>
-        </div>
 
+      </div>
+      
+      <div className="card info-card">
+        <h2>ⓘ 关于 NAT 类型</h2>
+        <p style={{color: '#666', fontSize: '0.9em', lineHeight: '1.6'}}>网络地址转换 (NAT) 影响着您与其他互联网用户的连接能力，并影响着为您提供连接的质量。以及NAT类型对您网络的影响。您在缓冲视频时就可能遭受了这个问题的困扰。关于四种类型的访问:</p>
+        <ul>
+            <li><strong>Full Cone (NAT1):</strong> 最佳。完全开放，任何外部主机均可访问。</li>
+            <li><strong>Restricted Cone (NAT2):</strong> 较好。仅允许您发送过数据的 IP 回传数据。</li>
+            <li><strong>Port-Restricted Cone (NAT3):</strong> 一般。限制更严，要求外部 IP 和端口都匹配。</li>
+            <li><strong>Symmetric (NAT4):</strong> 最差。对每个外部目标使用不同的映射，P2P 困难。</li>
+        </ul>
       </div>
 
       {/* CSS 样式 */}
       <style jsx>{`
         .container {
-          display: flex; justify-content: center; align-items: center;
+          display: flex; flex-direction: column; align-items: center;
           min-height: 100vh; padding: 20px; background: #f0f2f5;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         .card {
           background: white; padding: 30px; border-radius: 12px;
           box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-          width: 100%; max-width: 600px; /* 稍微加宽一点 */
+          width: 100%; max-width: 600px;
+          margin-bottom: 20px;
         }
-        h1 { margin: 0 0 10px 0; font-size: 1.8em; text-align: center; color: #1a1a1a; }
-        .subtitle { text-align: center; color: #666; margin-bottom: 25px; line-height: 1.5; }
+        .main-card {
+            text-align: center;
+            background: #1a1a1a;
+            color: white;
+        }
+        .info-card {
+            background: #fff;
+            color: #333;
+        }
+        h1 { margin: 0 0 20px 0; font-size: 1.8em; text-align: center; }
+        h2 { margin: 0 0 15px 0; font-size: 1.2em; }
         .btn {
           width: 100%; padding: 14px; border: none; border-radius: 8px;
           background: #1890ff; color: white; font-size: 1.1em; font-weight: 600; cursor: pointer;
@@ -247,32 +255,26 @@ export default function LocalNatTester() {
         .retry-btn { margin-top: 20px; background: #595959; }
         .retry-btn:hover { background: #8c8c8c; }
 
-        .result-box { margin-top: 20px; }
+        .result-box { margin-top: 20px; text-align: left; }
         .fadeIn { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .result-header { font-weight: bold; margin-bottom: 15px; font-size: 1.2em; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-
-        .info-item {
-            background: #f9f9f9; padding: 15px; border-radius: 8px;
-            margin-bottom: 15px; border: 1px solid #e8e8e8;
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
         }
-        .highlight { background: #e6f7ff; border-color: #91d5ff; }
-        .info-label { font-size: 0.9em; color: #555; margin-bottom: 8px; font-weight: 500;}
-        .info-value { font-size: 1.3em; font-weight: bold; color: #262626; font-family: monospace; }
-        .info-value.title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        .info-desc { margin-top: 8px; font-size: 0.95em; color: #666; line-height: 1.6; white-space: pre-wrap; }
-
-        .log-box { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
-        .log-title { font-size: 0.9em; font-weight: bold; margin-bottom: 10px; color: #888; }
-        .log-container { 
-            max-height: 250px; overflow-y: auto; background: #fafafa; padding: 10px; 
-            border-radius: 5px; border: 1px solid #eee; font-family: monospace;
+        .result-label {
+            color: #aaa;
         }
-        .log-entry { font-size: 0.85em; color: #555; margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; }
-        .log-success { color: #389e0d; }
-        .log-error { color: #cf1322; }
-        .log-empty { font-size: 0.85em; color: #aaa; font-style: italic; padding: 10px; text-align: center;}
+        .result-value {
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        ul { padding-left: 20px; color: #666; font-size: 0.9em; lineHeight: 1.6; }
+        li { margin-bottom: 10px; }
       `}</style>
     </div>
   );
