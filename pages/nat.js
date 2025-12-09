@@ -2,7 +2,8 @@ import { useState } from 'react';
 import Head from 'next/head';
 // 引入我们刚创建的样式文件
 import styles from '../styles/nat.module.css';
-// 引入图标
+// 引入图标如果你还没有安装 react-icons，请先在 package.json 中添加并安装，
+// 或者暂时注释掉下面这行和后面用到图标的地方
 import { FiActivity, FiGlobe, FiServer } from 'react-icons/fi';
 import { GiPartyPopper } from 'react-icons/gi';
 
@@ -23,7 +24,6 @@ export default function NatTester() {
     try {
       const response = await fetch(API_URL, {
         method: 'GET',
-        // 确保后端处理了 OPTIONS 请求，或者尝试去掉这个 header 如果不需要
         headers: {
             'Content-Type': 'application/json',
         },
@@ -61,7 +61,8 @@ export default function NatTester() {
   };
 
   return (
-    <div={styles.container}>
+    // 修复了这里的写法，之前错写成了 <div={styles.container}>
+    <div className={styles.container}>
       <Head>
         <title>NAT 类型在线检测工具</title>
         <meta name="description" content="远程检测您的网络 NAT 类型" />
@@ -70,6 +71,7 @@ export default function NatTester() {
 
       <main className={styles.main}>
         <h1 className={styles.title}>
+            {/* 如果没有安装 react-icons，请注释掉图标相关代码 */}
             <FiActivity style={{ marginRight: '10px', verticalAlign: 'middle' }} />
             NAT 类型检测
         </h1>
@@ -124,13 +126,6 @@ export default function NatTester() {
                             <span className={styles.detailValue}>{natData.textPort}</span>
                         </div>
                     </div>
-                    {/* 可以选择性显示原始数据 */}
-                    {/* <details style={{marginTop: '1rem', color: '#888'}}>
-                        <summary>查看原始数据</summary>
-                        <pre style={{textAlign: 'left', backgroundColor: '#000', padding: '1rem', borderRadius: '8px', overflowX: 'auto'}}>
-                            {JSON.stringify(natData, null, 2)}
-                        </pre>
-                    </details> */}
                 </div>
             )}
 
