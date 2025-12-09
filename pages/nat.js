@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 // 核心配置（替换为你的服务器信息）
 const SERVER_CONFIG = {
-  serverAIP: '你的Server A公网IP', // 例如：111.222.33.44
+  serverAIP: '45.62.118.20', // 例如：111.222.33.44
   wsPort: 8080,
   stunPort: 3478
 };
