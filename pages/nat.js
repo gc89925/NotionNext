@@ -8,7 +8,8 @@ export default function NAT() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch('https://你的VPS域名或IP:5000/nat');
+      // 调用 Vercel Serverless 代理 API
+      const res = await fetch('/api/proxyNat');
       const data = await res.json();
       setResult({
         success: true,
