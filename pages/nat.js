@@ -25,10 +25,19 @@ export default function NAT() {
 
   const natColor = (type) => {
     switch(type.toLowerCase()) {
-      case 'full cone': return '#10b981'; // 绿色
-      case 'restricted cone': return '#f59e0b'; // 橙色
-      case 'symmetric nat': return '#ef4444'; // 红色
-      default: return '#6b7280'; // 灰色
+      case 'full cone': return '#10b981';
+      case 'restricted cone': return '#f59e0b';
+      case 'symmetric nat': return '#ef4444';
+      default: return '#6b7280';
+    }
+  }
+
+  const natIcon = (type) => {
+    switch(type.toLowerCase()) {
+      case 'full cone': return '✅';
+      case 'restricted cone': return '⚠️';
+      case 'symmetric nat': return '❌';
+      default: return '❓';
     }
   }
 
@@ -94,10 +103,18 @@ export default function NAT() {
             borderRadius: '0.75rem',
             textAlign: 'left',
             color: '#111',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+            animation: 'fadeIn 0.5s ease'
           }}>
-            <div style={{ marginBottom: '0.5rem' }}>
-              NAT 类型: <span style={{ color: natColor(result.nat_type), fontWeight: 'bold' }}>{result.nat_type}</span>
+            <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', fontSize: '1.2rem' }}>
+              <span style={{
+                color: natColor(result.nat_type),
+                fontWeight: 'bold',
+                fontSize: '1.5rem',
+                marginRight: '0.5rem',
+                animation: 'bounce 0.5s ease'
+              }}>{natIcon(result.nat_type)}</span>
+              NAT 类型: <span style={{ color: natColor(result.nat_type), fontWeight: 'bold', marginLeft: '0.25rem' }}>{result.nat_type}</span>
             </div>
             <div style={{ marginBottom: '0.5rem' }}>公网 IP: {result.public_ip}</div>
             <div>端口: {result.public_port}</div>
@@ -112,6 +129,16 @@ export default function NAT() {
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+          }
+
+          @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
           }
         `}</style>
       </div>
