@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-// ======================== 1. 核心常量定义 ========================
+// ======================== 1. 核心常量定义（优先国内服务器） ========================
 // NAT 类型定义（RFC 标准）
 const NAT_TYPES = {
   full_cone: {
@@ -45,23 +45,24 @@ const NAT_TYPES = {
   }
 };
 
-// STUN服务器列表（扩展版，提高检测准确性）
+// STUN服务器列表（国内优先 + 备用国际服务器）
 const STUN_SERVERS = [
-  { url: 'stun:stun.l.google.com:19302', region: 'Google (Global)' },
-  { url: 'stun:stun1.l.google.com:19302', region: 'Google (1)' },
-  { url: 'stun:stun2.l.google.com:19302', region: 'Google (2)' },
-  { url: 'stun:stun3.l.google.com:19302', region: 'Google (3)' },
-  { url: 'stun:stun4.l.google.com:19302', region: 'Google (4)' },
-  { url: 'stun:stun.ekiga.net', region: 'Ekiga (Europe)' },
-  { url: 'stun:stun.ideasip.com', region: 'IdeasIP (US)' },
-  { url: 'stun:stun.schlund.de', region: 'Schlund (Europe)' },
-  { url: 'stun:stun.stunprotocol.org:3478', region: 'STUN Protocol (Global)' },
-  { url: 'stun:stun.voiparound.com', region: 'VoIPAround (Global)' },
+  // 国内可访问服务器（优先）
   { url: 'stun:stun.qq.com:3478', region: '腾讯 (中国)' },
-  { url: 'stun:stun.miwifi.com:3478', region: '小米 (中国)' }
+  { url: 'stun:stun.miwifi.com:3478', region: '小米 (中国)' },
+  { url: 'stun:stun.aliyun.com:3478', region: '阿里云 (中国)' },
+  { url: 'stun:stun.bjtelecom.net:3478', region: '北京电信 (中国)' },
+  // 备用国际服务器（国内访问不了时）
+  { url: 'stun:stun.cloudflare.com:3478', region: 'Cloudflare (全球)' },
+  { url: 'stun:stun.ekiga.net', region: 'Ekiga (欧洲)' },
+  { url: 'stun:stun.ideasip.com', region: 'IdeasIP (美国)' },
+  { url: 'stun:stun.stunprotocol.org:3478', region: 'STUN Protocol (全球)' },
+  // Google服务器（最后尝试）
+  { url: 'stun:stun.l.google.com:19302', region: 'Google (全球)' },
+  { url: 'stun:stun1.l.google.com:19302', region: 'Google (1)' }
 ];
 
-// ======================== 2. 图标组件（科技感） ========================
+// ======================== 2. 图标组件 ========================
 const Icons = {
   Radar: (props) => (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -97,16 +98,16 @@ const Icons = {
   )
 };
 
-// ======================== 3. 核心检测逻辑 ========================
+// ======================== 3. 核心检测逻辑（适配国内网络） ========================
 const NatDetectorPage = () => {
   // React 状态管理
-  const [status, setStatus] = useState('idle'); // idle, scanning, success, error
+  const [status, setStatus] = useState('idle');
   const [natType, setNatType] = useState(null);
   const [logs, setLogs] = useState([]);
   const [progress, setProgress] = useState(0);
   const [activeServer, setActiveServer] = useState(null);
   
-  // 引用管理（非响应式数据）
+  // 引用管理
   const connectionsRef = useRef([]);
   const logsEndRef = useRef(null);
   const abortControllerRef = useRef(new AbortController());
@@ -116,7 +117,7 @@ const NatDetectorPage = () => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // 组件卸载时清理资源
+  // 组件卸载清理
   useEffect(() => {
     return () => {
       abortControllerRef.current.abort();
@@ -141,17 +142,15 @@ const NatDetectorPage = () => {
     setProgress(0);
     setActiveServer(null);
     
-    // 清理 WebRTC 连接
     connectionsRef.current.forEach(pc => {
       try { pc.close(); } catch (e) {}
     });
     connectionsRef.current = [];
     
-    // 重置中止控制器
     abortControllerRef.current = new AbortController();
   };
 
-  // 解析 ICE 候选者（优化版）
+  // 解析 ICE 候选者
   const parseIceCandidate = (candidateStr) => {
     try {
       const candidateParts = candidateStr.split(' ');
@@ -196,8 +195,8 @@ const NatDetectorPage = () => {
     }
   };
 
-  // 获取 NAT 映射（带重试机制）
-  const getNatMapping = async (server, retries = 2) => {
+  // 获取 NAT 映射（优化超时和重试）
+  const getNatMapping = async (server, retries = 1) => {
     return new Promise((resolve) => {
       if (!server || !server.url) {
         addLog("无效的STUN服务器配置", "error");
@@ -206,12 +205,20 @@ const NatDetectorPage = () => {
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: server.url }],
-        iceTransportPolicy: 'all'
+        iceTransportPolicy: 'all',
+        iceCandidatePoolSize: 0
       });
       connectionsRef.current.push(pc);
 
-      // 创建数据通道触发 ICE 收集
-      pc.createDataChannel('nat-detection');
+      // 创建数据通道
+      try {
+        pc.createDataChannel('nat-detection', { ordered: false });
+      } catch (e) {
+        addLog(`创建数据通道失败: ${e.message}`, "error");
+        pc.close();
+        resolve(null);
+        return;
+      }
 
       let mapping = null;
       let timeoutId = null;
@@ -220,7 +227,7 @@ const NatDetectorPage = () => {
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           const candidate = parseIceCandidate(event.candidate.candidate);
-          if (candidate && candidate.type === 'srflx') { // 仅关注服务器反射候选者
+          if (candidate && candidate.type === 'srflx') {
             mapping = {
               ip: candidate.ip,
               port: candidate.port,
@@ -229,95 +236,125 @@ const NatDetectorPage = () => {
               relatedPort: candidate.relatedPort,
               server: server.url
             };
-            addLog(`成功获取映射: ${mapping.ip}:${mapping.port} (服务器: ${server.region})`, "debug");
+            addLog(`✅ 成功获取映射: ${mapping.ip}:${mapping.port} (${server.region})`, "success");
             clearTimeout(timeoutId);
+            pc.close();
+            resolve(mapping);
+          }
+        } else if (event.candidate === null) {
+          // ICE 收集完成但未找到 srflx 候选者
+          clearTimeout(timeoutId);
+          pc.close();
+          resolve(mapping);
+        }
+      };
+
+      // 连接状态处理
+      pc.oniceconnectionstatechange = () => {
+        if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
+          clearTimeout(timeoutId);
+          if (!mapping && retries > 0) {
+            addLog(`⚠️ ${server.region} 连接失败，重试1次`, "warning");
+            pc.close();
+            setTimeout(() => resolve(getNatMapping(server, retries - 1)), 500);
+          } else {
             pc.close();
             resolve(mapping);
           }
         }
       };
 
-      // 处理连接状态变化
-      pc.oniceconnectionstatechange = () => {
-        if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
-          if (!mapping && retries > 0) {
-            addLog(`服务器 ${server.url} 连接失败，重试中... (剩余${retries}次)`, "warning");
-            clearTimeout(timeoutId);
-            pc.close();
-            setTimeout(() => {
-              resolve(getNatMapping(server, retries - 1));
-            }, 1000);
-          } else if (!mapping) {
-            addLog(`服务器 ${server.url} 无法获取映射`, "error");
-            pc.close();
-            resolve(null);
-          }
-        }
-      };
+      // 创建 Offer
+      pc.createOffer({
+        offerToReceiveAudio: false,
+        offerToReceiveVideo: false
+      })
+      .then(offer => pc.setLocalDescription(offer))
+      .catch(error => {
+        addLog(`❌ 创建Offer失败: ${error.message} (${server.region})`, "error");
+        clearTimeout(timeoutId);
+        pc.close();
+        resolve(null);
+      });
 
-      // 创建 offer 触发 ICE 流程
-      pc.createOffer()
-        .then(offer => pc.setLocalDescription(offer))
-        .catch(error => {
-          addLog(`创建offer失败: ${error.message}`, "error");
-          clearTimeout(timeoutId);
-          pc.close();
-          resolve(null);
-        });
-
-      // 超时处理（8秒）
+      // 超时处理（国内网络调整为6秒）
       timeoutId = setTimeout(() => {
-        addLog(`服务器 ${server.url} 响应超时`, "warning");
+        addLog(`⏱️ ${server.region} 响应超时 (6秒)`, "warning");
         pc.close();
         if (retries > 0) {
           resolve(getNatMapping(server, retries - 1));
         } else {
           resolve(mapping || null);
         }
-      }, 8000);
+      }, 6000);
     });
   };
 
-  // 分析 NAT 行为（核心优化逻辑）
+  // 【关键修复】自动尝试多个服务器获取初始映射
+  const getInitialMappingWithFallback = async () => {
+    addLog("🔍 尝试获取初始映射（国内服务器优先）", "progress");
+    
+    // 依次尝试服务器，直到获取到映射
+    for (let i = 0; i < STUN_SERVERS.length; i++) {
+      const server = STUN_SERVERS[i];
+      setActiveServer(server);
+      addLog(`📡 尝试服务器: ${server.region} (${server.url})`, "info");
+      
+      const mapping = await getNatMapping(server);
+      if (mapping) {
+        addLog(`✅ 初始映射获取成功 (${server.region})`, "success");
+        return mapping;
+      }
+      
+      // 检测是否被中止
+      if (abortControllerRef.current.signal.aborted) {
+        return null;
+      }
+      
+      addLog(`❌ ${server.region} 无法获取映射，尝试下一个`, "warning");
+    }
+    
+    // 所有服务器都失败
+    return null;
+  };
+
+  // 分析 NAT 行为
   const analyzeNatBehavior = (initialMapping, mappings) => {
     if (mappings.length === 0) {
-      addLog("缺少足够的映射数据进行分析", "warning");
+      addLog("⚠️ 缺少足够的映射数据进行分析", "warning");
       return "unknown";
     }
     
-    // 检测对称 NAT（关键优化：基于多数服务器的一致性判断）
+    // 对称 NAT 判断（多数不一致才判定）
     const sameIpCount = mappings.filter(m => m.ip === initialMapping.ip).length;
     const samePortCount = mappings.filter(m => m.port === initialMapping.port).length;
     const totalMappings = mappings.length;
     const isMostlyDifferent = sameIpCount < totalMappings * 0.5 || samePortCount < totalMappings * 0.5;
     
     if (isMostlyDifferent) {
-      addLog(`不同服务器映射差异明显 (IP一致: ${sameIpCount}/${totalMappings}, 端口一致: ${samePortCount}/${totalMappings}) → 判定为对称型 NAT`, "analysis");
+      addLog(`🔴 不同服务器映射差异明显 (IP一致: ${sameIpCount}/${totalMappings}, 端口一致: ${samePortCount}/${totalMappings}) → 对称型 NAT`, "analysis");
       return "symmetric";
     }
     
-    // 锥形 NAT 判断
-    addLog("大多数服务器映射端口/IP一致 → 锥形 NAT", "analysis");
+    addLog(`🟢 大多数服务器映射端口/IP一致 → 锥形 NAT`, "analysis");
     
-    // 检查是否有地址/端口限制（区分全锥形/限制锥形）
+    // 检查限制类型
     const hasRestrictions = mappings.some(m => 
       m.relatedAddress !== null || m.relatedPort !== null
     );
     
     if (!hasRestrictions) {
-      addLog("无限制特征 → 全锥形 NAT", "analysis");
+      addLog(`🟢 无限制特征 → 全锥形 NAT`, "analysis");
       return "full_cone";
     }
     
-    // 检查端口限制
     const hasPortRestriction = mappings.some(m => m.relatedPort !== null);
     if (hasPortRestriction) {
-      addLog("检测到端口限制特征 → 端口限制锥形 NAT", "analysis");
+      addLog(`🟡 检测到端口限制 → 端口限制锥形 NAT`, "analysis");
       return "port_restricted_cone";
     }
     
-    // IP 限制
-    addLog("检测到IP限制特征 → 限制锥形 NAT", "analysis");
+    addLog(`🟢 检测到IP限制 → 限制锥形 NAT`, "analysis");
     return "restricted_cone";
   };
 
@@ -327,70 +364,72 @@ const NatDetectorPage = () => {
     
     resetState();
     setStatus('scanning');
-    addLog("=== 启动 NAT 类型精准检测 ===", "system");
-    addLog("遵循 RFC 3489 / RFC 5389 标准检测流程", "system");
+    addLog("=== 启动 NAT 类型精准检测（适配国内网络）===", "system");
+    addLog("遵循 RFC 3489 / RFC 5389 标准，优先使用国内 STUN 服务器", "system");
     
     try {
-      // 阶段 1: 获取初始映射
-      setProgress(20);
-      addLog("阶段 1: 获取初始公网映射", "progress");
+      // 阶段 1: 获取初始映射（带 fallback）
+      setProgress(10);
+      addLog("=== 阶段 1: 获取初始公网映射 ===", "progress");
       
-      const initialMapping = await getNatMapping(STUN_SERVERS[0]);
+      const initialMapping = await getInitialMappingWithFallback();
       if (!initialMapping) {
-        throw new Error("无法获取初始 NAT 映射");
+        throw new Error("所有 STUN 服务器都无法获取映射，请检查网络（关闭代理/VPN）");
       }
       
-      addLog(`初始映射: ${initialMapping.ip}:${initialMapping.port} (类型: ${initialMapping.type})`, "success");
+      addLog(`初始映射信息: ${initialMapping.ip}:${initialMapping.port}`, "success");
+      setProgress(30);
       
       // 阶段 2: 检测多服务器映射一致性
-      setProgress(40);
-      addLog("阶段 2: 检测不同服务器的端口映射一致性", "progress");
+      addLog("=== 阶段 2: 检测不同服务器的映射一致性 ===", "progress");
       
       const mappings = [];
-      const testServerCount = Math.min(8, STUN_SERVERS.length); // 测试更多服务器提高准确性
+      const testServers = STUN_SERVERS.filter(s => s.url !== initialMapping.server).slice(0, 5); // 选5个不同服务器
       
-      for (let i = 1; i < testServerCount; i++) {
-        setActiveServer(STUN_SERVERS[i]);
-        addLog(`正在测试服务器: ${STUN_SERVERS[i].url} (${STUN_SERVERS[i].region})`, "info");
+      for (let i = 0; i < testServers.length; i++) {
+        const server = testServers[i];
+        setActiveServer(server);
+        addLog(`📡 测试服务器 ${i+1}/${testServers.length}: ${server.region}`, "info");
         
-        const mapping = await getNatMapping(STUN_SERVERS[i]);
+        const mapping = await getNatMapping(server);
         if (mapping) {
           mappings.push(mapping);
-          addLog(`服务器 ${STUN_SERVERS[i].region} 映射: ${mapping.ip}:${mapping.port}`, "info");
+          addLog(`📌 ${server.region} 映射: ${mapping.ip}:${mapping.port}`, "info");
         }
         
         // 更新进度
-        setProgress(40 + (i * 60) / (testServerCount - 1));
+        setProgress(30 + (i * 50) / testServers.length);
         
-        // 检测中止判断
+        // 检测中止
         if (abortControllerRef.current.signal.aborted) {
-          throw new Error("检测已中止");
+          throw new Error("检测已手动中止");
         }
       }
       
       // 阶段 3: 分析 NAT 类型
-      setProgress(80);
-      addLog("阶段 3: 分析 NAT 行为特征", "progress");
+      setProgress(85);
+      addLog("=== 阶段 3: 分析 NAT 行为特征 ===", "progress");
       
       const detectedType = analyzeNatBehavior(initialMapping, mappings);
       setNatType(detectedType);
-      addLog(`NAT 类型检测完成: ${NAT_TYPES[detectedType].name} (${NAT_TYPES[detectedType].code})`, "success");
-      addLog(`描述: ${NAT_TYPES[detectedType].description}`, "info");
+      addLog(`✅ NAT 类型检测完成: ${NAT_TYPES[detectedType].name} (${NAT_TYPES[detectedType].code})`, "success");
+      addLog(`📝 类型描述: ${NAT_TYPES[detectedType].description}`, "info");
       
       // 完成检测
       setProgress(100);
       setStatus('success');
-      addLog("=== 检测流程完成 ===", "system");
+      addLog("=== NAT 检测流程完成 ===", "system");
       
     } catch (error) {
-      if (error.message !== "检测已中止") {
-        addLog(`检测失败: ${error.message}`, "error");
+      if (error.message !== "检测已手动中止") {
+        addLog(`❌ 检测失败: ${error.message}`, "error");
         setNatType("unknown");
         setStatus('error');
       } else {
-        addLog("检测已手动中止", "warning");
+        addLog("⚠️ 检测已手动中止", "warning");
         setStatus('idle');
       }
+      setProgress(0);
     }
   };
 
@@ -432,11 +471,11 @@ const NatDetectorPage = () => {
           <div className="flex justify-center items-center mb-4">
             <Icons.Radar className="w-10 h-10 text-emerald-400 mr-3 animate-pulse" />
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
-              NAT 类型精准检测器
+              NAT 类型精准检测器（国内版）
             </h1>
           </div>
           <p className="text-slate-400 max-w-xl mx-auto">
-            基于 RFC 3489/5389 标准 | 精准识别 Full Cone / Restricted / Port Restricted / Symmetric 四种 NAT 类型
+            适配国内网络环境 | 优先使用腾讯/小米/阿里云 STUN 服务器 | 遵循 RFC 3489/5389 标准
           </p>
         </header>
         
@@ -450,7 +489,7 @@ const NatDetectorPage = () => {
                 <p className="text-slate-400 text-sm">
                   {status === 'scanning' ? `当前服务器: ${activeServer?.region || '初始化中'}` : 
                    status === 'success' ? `检测结果: ${natType ? NAT_TYPES[natType].name : '未知'}` :
-                   "点击开始按钮启动精准检测"}
+                   "点击开始按钮启动精准检测（国内服务器优先）"}
                 </p>
               </div>
               
@@ -560,7 +599,12 @@ const NatDetectorPage = () => {
                 <div>
                   <h3 className="text-red-400 font-medium mb-1">检测失败</h3>
                   <p className="text-slate-300 text-sm">
-                    无法完成 NAT 类型检测，请检查网络连接，关闭代理/VPN 后重试。
+                    所有 STUN 服务器都无法访问，请检查：
+                    <ul className="mt-2 list-disc list-inside text-xs text-slate-400">
+                      <li>关闭代理、VPN 或梯子</li>
+                      <li>确保网络正常连接（重启路由器）</li>
+                      <li>暂时关闭防火墙/安全软件</li>
+                    </ul>
                   </p>
                 </div>
               </div>
@@ -622,7 +666,7 @@ const NatDetectorPage = () => {
         
         {/* 页脚 */}
         <footer className="mt-8 text-center text-xs text-slate-500">
-          <p>基于 WebRTC/STUN 技术 | 遵循 RFC 3489/5389 标准 | 仅供技术研究使用</p>
+          <p>适配国内网络环境 | 优先使用腾讯/小米/阿里云 STUN 服务器 | 遵循 RFC 3489/5389 标准</p>
         </footer>
       </div>
 
@@ -680,5 +724,5 @@ const NatDetectorPage = () => {
   );
 };
 
-// ======================== 关键：默认导出 React 组件 ========================
+// 默认导出 React 组件（关键）
 export default NatDetectorPage;
