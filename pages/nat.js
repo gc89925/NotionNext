@@ -1,19 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
-// 引入我们刚创建的样式文件
+import dynamic from 'next/dynamic'; // 1. 引入 dynamic
+// 引入样式文件
 import styles from '../styles/nat.module.css';
-// 引入图标如果你还没有安装 react-icons，请先在 package.json 中添加并安装，
-// 或者暂时注释掉下面这行和后面用到图标的地方
-import { FiActivity, FiGlobe, FiServer } from 'react-icons/fi';
-import { GiPartyPopper } from 'react-icons/gi';
+
+// 2. 使用 dynamic 动态引入图标，并设置 ssr: false 来禁止服务器端渲染
+const FiActivity = dynamic(() => import('react-icons/fi').then(mod => mod.FiActivity), { ssr: false });
+const FiGlobe = dynamic(() => import('react-icons/fi').then(mod => mod.FiGlobe), { ssr: false });
+const FiServer = dynamic(() => import('react-icons/fi').then(mod => mod.FiServer), { ssr: false });
+const FiInfo = dynamic(() => import('react-icons/fi').then(mod => mod.FiInfo), { ssr: false });
+const GiPartyPopper = dynamic(() => import('react-icons/gi').then(mod => mod.GiPartyPopper), { ssr: false });
 
 export default function NatTester() {
   const [natData, setNatData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // 用于解决 hydration 问题的状态
+  const [isClient, setIsClient] = useState(false);
 
-  // 替换为你自己的 VPS Flask API 地址
-  // 注意：必须是 HTTPS，否则 Vercel 会阻止请求
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // 你的 VPS API 地址。
+  // 重要：目前是 HTTP，在 Vercel HTTPS 环境下会被浏览器拦截。一定要尽快配置后端 HTTPS。
   const API_URL = 'http://nat.laogaofenxiang.com:5000/nat';
 
   const checkNatType = async () => {
@@ -34,34 +44,38 @@ export default function NatTester() {
       }
 
       const data = await response.json();
-      // 简单处理一下数据，提取公共IP和第一个端口
+      
       let publicIp = '未知';
       let textPort = '未知';
 
       if (data.results && data.results.length > 0) {
+          // 假设 format 是: 本地端口:公网IP:公网端口
           const parts = data.results[0].split(':');
           if (parts.length >= 2) {
               publicIp = parts[1];
           }
           if (parts.length >= 3) {
-              // 原始结果是 本地端口:公网IP:公网端口
               textPort = parts[2];
           }
       }
       
-      // 将处理后的数据存入状态
       setNatData({ ...data, publicIp, textPort });
 
     } catch (err) {
       console.error("Failed to fetch NAT type:", err);
-      setError(err.message || '请求失败，请检查网络或后端服务。');
+      // 这里提示用户可能是混合内容问题
+      setError(err.message + ' (如果部署在 Vercel，请确保后端 API 支持 HTTPS)');
     } finally {
       setLoading(false);
     }
   };
 
+  // 如果不是在客户端，先不渲染任何内容，避免 hydration 不匹配
+  if (!isClient) {
+    return <div className={styles.container}></div>;
+  }
+
   return (
-    // 修复了这里的写法，之前错写成了 <div={styles.container}>
     <div className={styles.container}>
       <Head>
         <title>NAT 类型在线检测工具</title>
@@ -71,32 +85,33 @@ export default function NatTester() {
 
       <main className={styles.main}>
         <h1 className={styles.title}>
-            {/* 如果没有安装 react-icons，请注释掉图标相关代码 */}
-            <FiActivity style={{ marginRight: '10px', verticalAlign: 'middle' }} />
+            {/* 动态组件需要在使用时才加载 */}
+            <FiActivity style={{ marginRight: '12px', color: '#3b82f6', verticalAlign: 'middle' }} />
             NAT 类型检测
         </h1>
 
         {/* 核心检测卡片 */}
         <div className={styles.card}>
             {!loading && !natData && !error && (
-                <div className={styles.loading}>
-                    点击下方按钮开始检测您的网络环境。
+                <div className={styles.loading} style={{ padding: '2rem' }}>
+                    <FiActivity size={40} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                    <p>点击下方按钮开始检测您的网络环境。</p>
                 </div>
             )}
 
             {loading && (
                 <div className={styles.loading}>
+                    <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>⏳</div>
                     正在进行 STUN 测试，请稍候...
                     <br/>
-                    <small style={{color: '#888'}}>这可能需要几秒钟</small>
+                    <small style={{opacity: 0.7, fontSize: '0.9rem'}}>这通常需要 3-5 秒</small>
                 </div>
             )}
 
             {error && (
                 <div className={styles.error}>
-                    <strong>检测失败:</strong> {error}
-                    <br/>
-                    <small>请确保您的 VPS API 服务正常运行且支持 HTTPS。</small>
+                    <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>检测失败</div>
+                    {error}
                 </div>
             )}
 
@@ -113,15 +128,15 @@ export default function NatTester() {
                     <div className={styles.detailsGrid}>
                         <div className={styles.detailItem}>
                             <span className={styles.detailLabel}>
-                                <FiGlobe style={{ marginRight: '5px' }} />
+                                <FiGlobe style={{ marginRight: '8px' }} />
                                 公网 IP 地址
                             </span>
                             <span className={styles.detailValue}>{natData.publicIp}</span>
                         </div>
                         <div className={styles.detailItem}>
                             <span className={styles.detailLabel}>
-                                <FiServer style={{ marginRight: '5px' }} />
-                                测试端口
+                                <FiServer style={{ marginRight: '8px' }} />
+                                测试端口映射
                             </span>
                             <span className={styles.detailValue}>{natData.textPort}</span>
                         </div>
@@ -140,14 +155,17 @@ export default function NatTester() {
 
         {/* 底部解释信息卡片 */}
         <section className={`${styles.card} ${styles.infoSection}`}>
-            <h2 className={styles.infoTitle}>关于 NAT 类型</h2>
+            <h2 className={styles.infoTitle}>
+                <FiInfo style={{ marginRight: '10px', verticalAlign: 'middle' }} />
+                关于 NAT 类型
+            </h2>
             <div className={styles.infoText}>
-                <p>网络地址转换 (NAT) 影响着您与其他互联网用户的连接能力，尤其是在 P2P 游戏或应用中。</p>
-                <ul style={{ paddingLeft: '20px', marginTop: '10px' }}>
-                    <li><strong>Full Cone NAT (NAT1):</strong> 最佳类型。任何外部主机都可以通过映射的公网 IP 和端口向您发送数据。</li>
-                    <li><strong>Restricted Cone NAT (NAT2):</strong> 只有您向其发送过数据的外部主机才能向您发送数据（基于 IP）。</li>
-                    <li><strong>Port-Restricted Cone NAT (NAT3):</strong> 类似 NAT2，但限制更严格，外部主机必须匹配 IP 和端口。</li>
-                    <li><strong>Symmetric NAT (NAT4):</strong> 最严格的类型。每次连接不同的外部目标都会使用不同的公网映射，通常对 P2P 不友好。</li>
+                <p>网络地址转换 (NAT) 影响着您与其他互联网用户的连接能力（如 P2P 联机）。</p>
+                <ul>
+                    <li><strong>Full Cone (NAT1):</strong> 最佳。完全开放，任何外部主机均可访问。</li>
+                    <li><strong>Restricted Cone (NAT2):</strong> 较好。仅允许您发送过数据的 IP 回传数据。</li>
+                    <li><strong>Port-Restricted Cone (NAT3):</strong> 一般。限制更严，要求外部 IP 和端口都匹配。</li>
+                    <li><strong>Symmetric (NAT4):</strong> 最差。对每个外部目标使用不同的映射，P2P 困难。</li>
                 </ul>
             </div>
         </section>
