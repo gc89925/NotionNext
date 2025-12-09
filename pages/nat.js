@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 
 // -----------------------------------------------------------------------------
-// SVG 图标 (保持美观)
+// SVG 图标
 // -----------------------------------------------------------------------------
 const Icons = {
   Radar: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.48m12.72-4.24a10 10 0 0 1 0 14.14m-16.96.01a10 10 0 0 1 0-14.15"/></svg>,
-  Globe: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  Globe: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
   Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   Cross: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   Chevron: ({ open }) => <svg style={{transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s'}} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>,
@@ -31,49 +31,57 @@ export default function NatTester() {
     
     if (pcRef.current) pcRef.current.close();
 
-    // 使用混合探测源
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.qq.com:3478' },
-        { urls: 'stun:stun.miwifi.com:3478' },
-        { urls: 'stun:stun.chat.bilibili.com:3478' },
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
-      ],
-      iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle' 
-    };
-
-    addLog("⚡ 启动 V7.0 算法补偿探测...");
+    addLog("⚡ 启动 V8.0 单链路多源检测 (Strict Mode)...");
 
     try {
+      // 策略改变：在一个 PC 中放入多个 STUN 服务器
+      // 目的：诱导浏览器使用同一个本地端口去连接不同的服务器
+      // 只有这样，我们才能真正看出路由器的端口映射策略
+      const config = {
+        iceServers: [
+            { urls: 'stun:stun.qq.com:3478' },
+            { urls: 'stun:stun.miwifi.com:3478' },
+            { urls: 'stun:stun.chat.bilibili.com:3478' },
+            { urls: 'stun:stun.l.google.com:19302' }, 
+            { urls: 'stun:stun.cloudflare.com:3478' }
+        ],
+        iceCandidatePoolSize: 0, // 禁用预收集，强制实时探测
+        bundlePolicy: 'max-bundle'
+      };
+
       const pc = new RTCPeerConnection(config);
       pcRef.current = pc;
-      const candidates = [];
+      
+      const candidates = []; // 存储所有发现的公网映射
 
-      pc.createDataChannel('ping');
+      pc.createDataChannel('ping'); // 触发 ICE 收集
 
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           const { protocol, type, address, port } = e.candidate;
-          // 只记录 UDP 公网地址
+          // 仅记录 UDP 的公网反射 (srflx)
           if (protocol === 'udp' && type === 'srflx') {
-            candidates.push({ address, port });
-            addLog(`📡 [STUN响应] ${address}:${port}`);
+            // 去重：因为可能会收到重复的 candidate
+            const exists = candidates.some(c => c.address === address && c.port === port);
+            if (!exists) {
+                candidates.push({ address, port });
+                addLog(`📡 [STUN反馈] IP: ${address} | 端口: ${port}`);
+            }
           }
         } else {
-          addLog("🏁 收集结束，执行补偿算法...");
+          addLog("🏁 浏览器 ICE 收集结束，开始严厉判定...");
           analyzeResults(candidates);
         }
       };
 
+      // 4秒超时强制判定
       setTimeout(() => {
         if (pc.iceGatheringState !== 'complete') {
-          addLog("⏳ 收集时间截止，强制分析...");
+          addLog("⏳ 收集超时，基于现有数据判定...");
           analyzeResults(candidates);
           pc.close();
         }
-      }, 3500); // 稍微延长等待时间
+      }, 4000);
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -85,7 +93,7 @@ export default function NatTester() {
   };
 
   // ---------------------------------------------------------------------------
-  // 核心判定逻辑 V7.0 (关键修改)
+  // 核心判定逻辑 V8.0 (严厉版)
   // ---------------------------------------------------------------------------
   const analyzeResults = (candidates) => {
     if (candidates.length === 0) {
@@ -99,37 +107,43 @@ export default function NatTester() {
     
     let type, natCode, gameGrade, desc, hostability;
     
-    // 逻辑判定树
+    // 1. IP 稳定性检查
     if (uniqueIps.size > 1) {
-       // 情况1：公网 IP 变来变去 -> 真正的网络差
        type = "异常: 多重公网 IP";
        natCode = "Bad";
        gameGrade = "C";
-       desc = "检测到多个公网出口 IP，您的网络路由极不稳定。";
+       desc = "检测到出口 IP 不一致，网络路由极不稳定。";
        hostability = "低";
     } else {
-       // 情况2：公网 IP 稳定 (uniqueIps.size === 1)
-       // 只要 IP 稳，就是好网！无视端口变化。
+       // 2. 端口一致性检查 (这是判断 Cone vs Symmetric 的金标准)
        
        if (uniquePorts.size === 1) {
-           // 2.1 端口完全没变 -> 完美 Full Cone
-           type = "Full Cone (全锥形)";
-           natCode = "NAT1";
+           // === 情况 A: 连接多个服务器，端口完全没变 ===
+           // 只有路由器是 Full Cone 且浏览器复用了连接时才会发生
+           type = "Cone NAT (锥形)";
+           natCode = "NAT1/2"; 
            gameGrade = "S";
-           desc = "完美网络！公网 IP 与端口映射完全锁定。这是最理想的主机网络环境。";
+           desc = "优质网络！端口映射保持一致。这通常代表 Full Cone 或受限较小的 Cone NAT。";
            hostability = "完美支持";
        } else {
-           // 2.2 端口变了 -> 以前判NAT4，现在判NAT2/3 (Cone)
-           // 解释：这是浏览器的安全机制在强制换端口，但您的 Full Cone 路由其实是生效的。
-           type = "Cone NAT (锥形)";
-           natCode = "NAT1-2"; 
-           gameGrade = "S"; // 依然给 S 级
-           desc = "网络质量极佳。公网 IP 非常稳定。虽然浏览器产生了端口偏移，但您的网络本质是优质的锥形 NAT。";
-           hostability = "支持";
+           // === 情况 B: 端口变了 ===
+           // 在这个版本中，我们不再帮用户找借口。
+           // 如果你关了 FullCone，路由器变成了 Symmetric，这里端口一定会变，我们直接报 NAT4。
+           // 虽然浏览器随机化也可能导致变动，但为了“准”，我们宁可误报为严厉，也不能把坏报成好。
+           type = "Symmetric NAT (对称型)";
+           natCode = "NAT4";
+           gameGrade = "C"; 
+           desc = "检测到端口映射变化。对于不同目标服务器，您的网络使用了不同的映射端口。这是严格的 NAT 类型。";
+           hostability = "不支持";
        }
     }
 
-    setResult({ ip: mainIp, type, natCode, gameGrade, desc, hostability, portCount: candidates.length });
+    // 补充说明：前端无法区分 NAT1 (Full) 和 NAT2 (Restricted)，统称为 Cone NAT
+    if (natCode === 'NAT1/2') {
+        type = "Cone NAT (兼容 NAT1)";
+    }
+
+    setResult({ ip: mainIp, type, natCode, gameGrade, desc, hostability, portCount: uniquePorts.size });
     setStatus('success');
   };
 
@@ -142,9 +156,9 @@ export default function NatTester() {
         <header className="header">
           <div className="logo-area">
             <span className="logo-icon"><Icons.Radar /></span>
-            <h1>Net<span className="highlight">Scope</span> V7</h1>
+            <h1>Net<span className="highlight">Scope</span> V8</h1>
           </div>
-          <p className="subtitle">浏览器端算法修正版 - 专治误报</p>
+          <p className="subtitle">单链路多源检测 - 严厉模式</p>
         </header>
 
         <div className="card scan-card">
@@ -164,7 +178,7 @@ export default function NatTester() {
                 <div className="loader-ring">
                    <div></div><div></div><div></div><div></div>
                 </div>
-                <p className="scanning-text">正在穿透检测...</p>
+                <p className="scanning-text">正在向 5 个全球节点发送探测包...</p>
                 <div className="scan-log-preview">
                    {logs.slice(-3).map((l,i) => <div key={i} className="log-line">{l}</div>)}
                 </div>
@@ -189,7 +203,7 @@ export default function NatTester() {
               <div className="health-section">
                 <div className="bar-label">
                   <span>网络开放度</span>
-                  <span>{result.gameGrade === 'S' ? '99%' : '30%'}</span>
+                  <span>{result.gameGrade === 'S' ? '95%' : '20%'}</span>
                 </div>
                 <div className="progress-bg">
                   <div className={`progress-fill rank-${result.gameGrade}`}></div>
@@ -205,13 +219,13 @@ export default function NatTester() {
                  <div className="comp-item">
                     <span className="comp-label">Nintendo Switch</span>
                     <span className="comp-val">
-                       {result.gameGrade === 'C' ? 'D' : 'A'}
+                       {result.gameGrade === 'S' ? 'A' : 'D'}
                     </span>
                  </div>
                  <div className="comp-item">
                     <span className="comp-label">PS5 / Xbox</span>
                     <span className="comp-val">
-                       {result.gameGrade === 'C' ? 'Type 3' : 'Type 1/2'}
+                       {result.gameGrade === 'S' ? 'Type 1/2' : 'Type 3'}
                     </span>
                  </div>
               </div>
@@ -226,17 +240,31 @@ export default function NatTester() {
              <div className="fail-state">
                 <div className="error-icon"><Icons.Cross /></div>
                 <h3>检测失败</h3>
-                <p>无法连接 STUN 服务器。请检查：1. 是否断网 2. 代理软件是否开启 (请关闭代理)。</p>
+                <p>无法连接 STUN 服务器。请检查是否已关闭代理软件。</p>
                 <button className="retry-btn" onClick={startScan}>重试</button>
              </div>
           )}
         </div>
 
-        {/* FAQ 折叠区域 */}
+        {/* 游戏体验预测卡片 */}
+        {status === 'success' && result && (
+          <div className="card game-card animate-slide-up">
+             <h3><Icons.Globe /> 游戏连通性预测</h3>
+             <div className="game-list">
+                <div className="game-row">
+                   <span className="game-name">Minecraft (P2P)</span>
+                   <span className={`game-status ${result.gameGrade === 'S' ? 'good' : 'bad'}`}>
+                      {result.gameGrade === 'S' ? '可作主机' : '不可作主机'}
+                   </span>
+                </div>
+             </div>
+          </div>
+        )}
+
         <div className="faq-section">
            {[
-             {q: "为什么这个版本准了?", a: "因为 natchecker.com 使用了后端服务器来绕过浏览器限制。我们没有后端，但在 V7 版本中加入了‘算法补偿’，能够识别出哪些‘端口变化’是浏览器造成的，从而正确识别您的 Full Cone 网络。"},
-             {q: "S 级评分代表什么?", a: "代表您的公网 IP 极其稳定。即使端口有跳变(浏览器行为)，您的网络本质依然是高质量的 Cone NAT，打游戏完全没问题。"}
+             {q: "这个版本有什么不同?", a: "V8 版本采用了最严厉的判定逻辑。只要检测到任何端口变化，就会判定为 Symmetric NAT4。这能准确反映您关闭 FullCone 后的网络状态变化。"},
+             {q: "为什么显示 Cone NAT 而不是 NAT1?", a: "因为没有后端服务器辅助，纯浏览器技术无法从物理上区分 NAT1 (Full) 和 NAT2 (Restricted)。但只要显示为 Cone NAT (S级)，您的网络质量就已经达到了 NAT1/2 的水平。"}
            ].map((item, idx) => (
              <div key={idx} className={`faq-item ${expandedFaq === idx ? 'open' : ''}`} onClick={() => setExpandedFaq(idx === expandedFaq ? -1 : idx)}>
                 <div className="faq-header">
@@ -374,6 +402,16 @@ export default function NatTester() {
         }
         .retry-btn:hover { background: #374151; }
 
+        /* 游戏卡片 */
+        .game-card h3 { margin: 0 0 16px 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .game-list { display: flex; flex-direction: column; gap: 12px; }
+        .game-row { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #2D3748; }
+        .game-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .game-name { font-size: 14px; }
+        .game-status { font-size: 13px; font-weight: 600; }
+        .good { color: #10B981; }
+        .bad { color: #EF4444; }
+
         .fail-state { text-align: center; padding: 20px; }
         .error-icon { color: #EF4444; margin-bottom: 10px; }
 
@@ -396,6 +434,7 @@ export default function NatTester() {
         @keyframes pulse { 0% {opacity: 1;} 50% {opacity: 0.5;} 100% {opacity: 1;} }
         @keyframes pop { 0% {transform: scale(0.95); opacity: 0;} 100% {transform: scale(1); opacity: 1;} }
         .animate-pop { animation: pop 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .animate-slide-up { animation: pop 0.5s ease-out backwards; animation-delay: 0.1s; }
 
       `}</style>
     </div>
