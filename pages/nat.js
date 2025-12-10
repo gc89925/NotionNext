@@ -5,7 +5,7 @@ export default function NATTest() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const apiURL = "https://你的域名/nat"; // ← 记得换成你的域名
+  const apiURL = "https://blog.laogaofenxiang.com/nat"; // ← 记得换成你的域名
 
   const testNAT = async () => {
     setLoading(true);
