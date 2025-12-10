@@ -1,170 +1,164 @@
-/**
- * NAT检测工具 - 适配Next.js SSR版
- * 仅在客户端（浏览器）环境执行，避免服务端报错
- */
-let ws = null;
-let isDetecting = false;
-let currentStep = 0;
-let localIp = '未知';
+// pages/nat.js - 单文件解决方案（Next.js合法页面组件 + 客户端NAT检测）
+import { useEffect, useState } from 'react';
+import Head from 'next/head';
 
-// 配置项
-const CONFIG = {
-    serverIP: '45.62.118.20',
-    wsPort: 8080,
-    domIds: {
-        btn: 'nat-detect-btn',
-        steps: 'nat-steps',
-        loading: 'nat-loading',
-        error: 'nat-error',
-        result: 'nat-result',
-        localIp: 'nat-local-ip',
-        publicIp: 'nat-public-ip',
-        publicPort: 'nat-public-port',
-        natType: 'nat-type',
-        natDesc: 'nat-desc',
-        natTips: 'nat-tips'
-    }
-};
+// ======================== 核心：默认导出React组件（满足Next.js规则）========================
+export default function NATDetectorPage() {
+    // 状态管理（替代原DOM操作，更符合React规范）
+    const [isDetecting, setIsDetecting] = useState(false);
+    const [currentStep, setCurrentStep] = useState(0);
+    const [errorMsg, setErrorMsg] = useState('');
+    const [natResult, setNatResult] = useState({
+        localIp: '未知',
+        publicIp: '未知',
+        publicPort: '未知',
+        natType: '未知',
+        desc: '未知',
+        tips: '未知'
+    });
+    const [localIp, setLocalIp] = useState('未知');
 
-// 仅在客户端环境暴露方法
-const NATDetector = {
-    // 初始化（必须在客户端调用）
-    init: function() {
-        // 双重判断：确保是浏览器环境
-        if (typeof window === 'undefined' || typeof document === 'undefined') {
-            console.warn('NAT检测仅支持浏览器环境');
+    // 服务器配置
+    const CONFIG = {
+        serverIP: '45.62.118.20',
+        wsPort: 8080
+    };
+
+    // ======================== 客户端NAT检测逻辑（仅浏览器执行）========================
+    useEffect(() => {
+        // 1. 仅在客户端执行（避免服务端window报错）
+        if (typeof window === 'undefined' || !window.WebSocket) {
+            setErrorMsg('当前环境不支持WebSocket，无法检测');
             return;
         }
 
+        let ws = null;
+
+        // 2. 获取本地IP
+        const getLocalIP = () => {
+            try {
+                const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+                if (!RTCPeerConnection) return;
+
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
+
+                pc.onicecandidate = (e) => {
+                    if (!e.candidate) return;
+                    const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+                    const match = e.candidate.candidate.match(ipRegex);
+                    if (match && match[1] && match[1] !== '0.0.0.0') {
+                        setLocalIp(match[1]);
+                        pc.close();
+                    }
+                };
+            } catch (err) {
+                console.log('获取本地IP失败:', err);
+            }
+        };
+
+        // 3. 初始化WebSocket
+        const initWebSocket = (callback) => {
+            if (ws) ws.close();
+
+            try {
+                const wsUrl = `ws://${CONFIG.serverIP}:${CONFIG.wsPort}`;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    setErrorMsg('');
+                    if (callback) callback();
+                };
+
+                ws.onmessage = (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        // 更新步骤
+                        if (data.step) {
+                            setCurrentStep(data.step);
+                            // 检测完成（步骤4）
+                            if (data.step === 4) {
+                                setIsDetecting(false);
+                                setNatResult({
+                                    localIp: localIp,
+                                    publicIp: data.publicIp || '未知',
+                                    publicPort: data.publicPort || '未知',
+                                    natType: data.natType || '未知',
+                                    desc: data.description || '无',
+                                    tips: data.tips?.join('；') || '无'
+                                });
+                            }
+                        }
+                        // 错误处理
+                        if (data.type === 'error') {
+                            setErrorMsg(data.message);
+                            setIsDetecting(false);
+                            setCurrentStep(0);
+                        }
+                    } catch (err) {
+                        setErrorMsg('解析检测数据失败');
+                        setIsDetecting(false);
+                        setCurrentStep(0);
+                    }
+                };
+
+                ws.onclose = () => {
+                    if (isDetecting) {
+                        setErrorMsg('检测服务器连接断开');
+                        setIsDetecting(false);
+                        setCurrentStep(0);
+                    }
+                };
+
+                ws.onerror = () => {
+                    setErrorMsg('连接检测服务器失败，请检查网络或服务器状态');
+                    setIsDetecting(false);
+                    setCurrentStep(0);
+                };
+            } catch (err) {
+                setErrorMsg('初始化检测连接失败');
+                setIsDetecting(false);
+            }
+        };
+
+        // 4. 开始检测函数
+        window.startNATDetect = () => {
+            setIsDetecting(true);
+            setCurrentStep(1);
+            setErrorMsg('');
+            setNatResult({
+                localIp: '未知',
+                publicIp: '未知',
+                publicPort: '未知',
+                natType: '未知',
+                desc: '未知',
+                tips: '未知'
+            });
+
+            // 发送检测请求
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                setTimeout(() => {
+                    ws.send(JSON.stringify({ type: 'init' }));
+                }, 500);
+            } else {
+                initWebSocket(() => {
+                    ws.send(JSON.stringify({ type: 'init' }));
+                });
+            }
+        };
+
+        // 初始化：获取本地IP + 连接WS
         getLocalIP();
         initWebSocket();
-        bindBtnEvent();
-        initStepsUI();
-    },
-    getLocalIp: () => localIp
-};
 
-// 获取本地IP（客户端专用）
-function getLocalIP() {
-    try {
-        const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
-        if (!RTCPeerConnection) return;
-
-        const pc = new RTCPeerConnection({ iceServers: [] });
-        pc.createDataChannel('');
-        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
-
-        pc.onicecandidate = (e) => {
-            if (!e.candidate) return;
-            const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
-            const match = e.candidate.candidate.match(ipRegex);
-            if (match && match[1] && match[1] !== '0.0.0.0') {
-                localIp = match[1];
-                pc.close();
-            }
+        // 组件卸载：关闭WS
+        return () => {
+            if (ws) ws.close();
         };
-    } catch (err) {
-        console.log('获取本地IP失败:', err);
-    }
-}
+    }, [localIp]); // 依赖仅localIp，避免重复执行
 
-// 初始化WebSocket（客户端专用）
-function initWebSocket(callback) {
-    if (typeof window === 'undefined') return;
-    if (ws) ws.close();
-
-    try {
-        const wsUrl = `ws://${CONFIG.serverIP}:${CONFIG.wsPort}`;
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            hideError();
-            if (callback) callback();
-        };
-
-        ws.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (data.step) {
-                    currentStep = data.step;
-                    updateStepsUI();
-                    hideLoading();
-
-                    if (data.step === 4) {
-                        isDetecting = false;
-                        const btn = document.getElementById(CONFIG.domIds.btn);
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.textContent = '重新检测';
-                        }
-                        fillResult({
-                            localIp: localIp,
-                            publicIp: data.publicIp || '未知',
-                            publicPort: data.publicPort || '未知',
-                            natType: data.natType || '未知',
-                            desc: data.description || '无',
-                            tips: data.tips?.join('；') || '无'
-                        });
-                        showResult();
-                    }
-                }
-
-                if (data.type === 'error') {
-                    handleError(data.message);
-                }
-            } catch (err) {
-                handleError('解析检测数据失败');
-            }
-        };
-
-        ws.onclose = () => {
-            if (isDetecting) handleError('检测服务器连接断开');
-        };
-
-        ws.onerror = () => {
-            handleError('连接检测服务器失败，请检查网络');
-        };
-    } catch (err) {
-        handleError('初始化检测连接失败');
-    }
-}
-
-// 绑定按钮事件
-function bindBtnEvent() {
-    const btn = document.getElementById(CONFIG.domIds.btn);
-    if (!btn) return;
-
-    btn.addEventListener('click', () => {
-        if (isDetecting) return;
-
-        resetState();
-        isDetecting = true;
-        currentStep = 1;
-        updateStepsUI();
-        
-        showLoading();
-        hideError();
-        hideResult();
-        btn.disabled = true;
-        btn.textContent = '检测中...';
-
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            setTimeout(() => {
-                ws.send(JSON.stringify({ type: 'init' }));
-            }, 500);
-        } else {
-            initWebSocket(() => {
-                ws.send(JSON.stringify({ type: 'init' }));
-            });
-        }
-    });
-}
-
-// 初始化步骤UI
-function initStepsUI() {
-    const stepsContainer = document.getElementById(CONFIG.domIds.steps);
-    if (!stepsContainer) return;
-
+    // ======================== 步骤配置 ========================
     const steps = [
         { id: 1, text: '连接服务器' },
         { id: 2, text: '获取公网IP' },
@@ -172,116 +166,199 @@ function initStepsUI() {
         { id: 4, text: '生成报告' }
     ];
 
-    let stepsHTML = '';
-    steps.forEach(step => {
-        stepsHTML += `
-            <div class="nat-step" id="nat-step-${step.id}">
-                <div class="nat-step-icon">${step.id}</div>
-                <div class="nat-step-text">${step.text}</div>
+    // ======================== JSX渲染（React组件核心）========================
+    return (
+        <div style={pageStyle}>
+            <Head>
+                <title>NAT类型检测 | 我的博客</title>
+                <meta name="description" content="精准检测NAT类型、公网IP、本地IP" />
+            </Head>
+
+            {/* 标题 */}
+            <div style={headerStyle}>
+                <h2>NAT类型精准检测工具</h2>
+                <p style={subTitleStyle}>基于WebSocket+STUN协议，纯前端检测</p>
             </div>
-        `;
-    });
-    stepsContainer.innerHTML = stepsHTML;
+
+            {/* 检测按钮 */}
+            <button
+                style={{ ...btnStyle, ...(isDetecting ? disabledBtnStyle : {}) }}
+                onClick={() => window.startNATDetect()}
+                disabled={isDetecting}
+            >
+                {isDetecting ? '检测中...' : '开始NAT类型检测'}
+            </button>
+
+            {/* 步骤展示 */}
+            <div style={stepsContainerStyle}>
+                {steps.map(step => (
+                    <div key={step.id} style={stepItemStyle}>
+                        <div
+                            style={{
+                                ...stepIconStyle,
+                                backgroundColor: currentStep === step.id
+                                    ? '#2563eb' // 激活态
+                                    : currentStep > step.id
+                                        ? '#10b981' // 完成态
+                                        : '#e2e8f0' // 未开始
+                            }}
+                        >
+                            {step.id}
+                        </div>
+                        <div style={stepTextStyle}>{step.text}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* 错误提示 */}
+            {errorMsg && <div style={errorStyle}>{errorMsg}</div>}
+
+            {/* 加载提示 */}
+            {isDetecting && currentStep > 0 && <div style={loadingStyle}>检测中，请稍候...</div>}
+
+            {/* 检测结果 */}
+            {currentStep === 4 && (
+                <div style={resultCardStyle}>
+                    <div style={resultTitleStyle}>NAT检测报告</div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>本地IP：</span>
+                        <span style={resultValueStyle}>{natResult.localIp}</span>
+                    </div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>公网IP：</span>
+                        <span style={resultValueStyle}>{natResult.publicIp}</span>
+                    </div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>公网端口：</span>
+                        <span style={resultValueStyle}>{natResult.publicPort}</span>
+                    </div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>NAT类型：</span>
+                        <span style={resultValueStyle}>{natResult.natType}</span>
+                    </div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>类型描述：</span>
+                        <span style={resultValueStyle}>{natResult.desc}</span>
+                    </div>
+                    <div style={resultItemStyle}>
+                        <span style={resultLabelStyle}>优化建议：</span>
+                        <span style={resultValueStyle}>{natResult.tips}</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
-// 更新步骤UI
-function updateStepsUI() {
-    for (let i = 1; i <= 4; i++) {
-        const stepEl = document.getElementById(`nat-step-${i}`);
-        if (!stepEl) continue;
+// ======================== 内联样式（无需额外CSS文件）========================
+const pageStyle = {
+    maxWidth: '700px',
+    margin: '0 auto',
+    padding: '20px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+};
 
-        stepEl.classList.remove('active', 'completed');
-        if (i === currentStep) {
-            stepEl.classList.add('active');
-        } else if (i < currentStep) {
-            stepEl.classList.add('completed');
-        }
-    }
-}
+const headerStyle = {
+    textAlign: 'center',
+    marginBottom: '20px'
+};
 
-// 填充检测结果
-function fillResult(result) {
-    const localIpEl = document.getElementById(CONFIG.domIds.localIp);
-    const publicIpEl = document.getElementById(CONFIG.domIds.publicIp);
-    const publicPortEl = document.getElementById(CONFIG.domIds.publicPort);
-    const natTypeEl = document.getElementById(CONFIG.domIds.natType);
-    const natDescEl = document.getElementById(CONFIG.domIds.natDesc);
-    const natTipsEl = document.getElementById(CONFIG.domIds.natTips);
+const subTitleStyle = {
+    color: '#666',
+    fontSize: '14px',
+    marginTop: '8px'
+};
 
-    if (localIpEl) localIpEl.textContent = result.localIp;
-    if (publicIpEl) publicIpEl.textContent = result.publicIp;
-    if (publicPortEl) publicPortEl.textContent = result.publicPort;
-    if (natTypeEl) natTypeEl.textContent = result.natType;
-    if (natDescEl) natDescEl.textContent = result.desc;
-    if (natTipsEl) natTipsEl.textContent = result.tips;
-}
+const btnStyle = {
+    width: '100%',
+    padding: '12px',
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    marginBottom: '20px',
+    transition: 'background-color 0.2s'
+};
 
-// 错误处理
-function handleError(msg) {
-    isDetecting = false;
-    const btn = document.getElementById(CONFIG.domIds.btn);
-    if (btn) {
-        btn.disabled = false;
-        btn.textContent = '开始检测';
-    }
-    showError(msg);
-    hideLoading();
-    resetStepsUI();
-}
+const disabledBtnStyle = {
+    backgroundColor: '#94a3b8',
+    cursor: 'not-allowed'
+};
 
-// 重置状态
-function resetState() {
-    currentStep = 0;
-    isDetecting = false;
-    resetStepsUI();
-}
+const stepsContainerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '20px',
+    gap: '8px'
+};
 
-// 重置步骤UI
-function resetStepsUI() {
-    for (let i = 1; i <= 4; i++) {
-        const stepEl = document.getElementById(`nat-step-${i}`);
-        if (stepEl) stepEl.classList.remove('active', 'completed');
-    }
-}
+const stepItemStyle = {
+    flex: 1,
+    textAlign: 'center',
+    position: 'relative'
+};
 
-// UI工具函数
-function showLoading() {
-    const el = document.getElementById(CONFIG.domIds.loading);
-    if (el) el.classList.add('show');
-}
+const stepIconStyle = {
+    width: '28px',
+    height: '28px',
+    lineHeight: '28px',
+    borderRadius: '50%',
+    color: '#fff',
+    margin: '0 auto 6px',
+    fontSize: '12px'
+};
 
-function hideLoading() {
-    const el = document.getElementById(CONFIG.domIds.loading);
-    if (el) el.classList.remove('show');
-}
+const stepTextStyle = {
+    fontSize: '12px',
+    color: '#666'
+};
 
-function showError(msg) {
-    const el = document.getElementById(CONFIG.domIds.error);
-    if (el) {
-        el.textContent = msg;
-        el.classList.add('show');
-    }
-}
+const errorStyle = {
+    textAlign: 'center',
+    padding: '12px',
+    backgroundColor: '#fef2f2',
+    color: '#ef4444',
+    borderRadius: '4px',
+    marginBottom: '20px',
+    fontSize: '14px'
+};
 
-function hideError() {
-    const el = document.getElementById(CONFIG.domIds.error);
-    if (el) el.classList.remove('show');
-}
+const loadingStyle = {
+    textAlign: 'center',
+    color: '#2563eb',
+    fontSize: '14px',
+    marginBottom: '20px'
+};
 
-function showResult() {
-    const el = document.getElementById(CONFIG.domIds.result);
-    if (el) el.classList.add('show');
-}
+const resultCardStyle = {
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    padding: '16px',
+    marginTop: '20px'
+};
 
-function hideResult() {
-    const el = document.getElementById(CONFIG.domIds.result);
-    if (el) el.classList.remove('show');
-}
+const resultTitleStyle = {
+    fontSize: '18px',
+    marginBottom: '15px',
+    paddingBottom: '10px',
+    borderBottom: '1px solid #f5f5f5'
+};
 
-// 仅在客户端导出（Next.js SSR兼容）
-if (typeof window !== 'undefined') {
-    window.NATDetector = NATDetector;
-}
+const resultItemStyle = {
+    display: 'flex',
+    marginBottom: '10px',
+    fontSize: '14px'
+};
 
-// 模块化导出（支持import）
-export default NATDetector;
+const resultLabelStyle = {
+    width: '100px',
+    color: '#666',
+    fontWeight: 500
+};
+
+const resultValueStyle = {
+    flex: 1,
+    color: '#333'
+};
