@@ -9,24 +9,20 @@ import { NotionRenderer } from 'react-notion-x'
 
 /**
  * ================================
- * 新增：外部链接组件（最终生效版）
- * - 覆盖 a + link
- * - 外链新标签页
+ * 强制外链组件（最终版）
+ * - 无视 react-notion-x 的 target="_self"
+ * - 所有 http(s) 链接强制新标签页
  * - 自动追加 ↗
  * ================================
  */
 const CustomLink = ({ href, children, ...props }) => {
-  const isExternal =
-    href &&
-    (href.startsWith('http://') || href.startsWith('https://'))
-
-  if (isExternal) {
+  if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
     return (
       <a
+        {...props}                 // ⚠️ 必须先展开
         href={href}
-        target="_blank"
+        target="_blank"            // ✅ 强制覆盖
         rel="noopener noreferrer nofollow"
-        {...props}
       >
         {children}
         <span
@@ -43,7 +39,7 @@ const CustomLink = ({ href, children, ...props }) => {
   }
 
   return (
-    <a href={href} {...props}>
+    <a {...props} href={href}>
       {children}
     </a>
   )
@@ -51,7 +47,6 @@ const CustomLink = ({ href, children, ...props }) => {
 
 /**
  * 整个站点的核心组件
- * 将 Notion 数据渲染成网页
  */
 const NotionPage = ({ post, className }) => {
   const POST_DISABLE_GALLERY_CLICK = siteConfig('POST_DISABLE_GALLERY_CLICK')
@@ -148,8 +143,8 @@ const NotionPage = ({ post, className }) => {
           Modal,
           Pdf,
           Tweet,
-          a: CustomLink,     // HTML a
-          link: CustomLink  // ⭐ Notion 正文链接（关键）
+          link: CustomLink, // ⭐ 必须
+          a: CustomLink     // ⭐ 保险
         }}
       />
 
@@ -195,7 +190,7 @@ const processGalleryImg = zoom => {
 }
 
 /**
- * 根据 hash 自动滚动
+ * hash 自动滚动
  */
 const autoScrollToHash = () => {
   setTimeout(() => {
@@ -209,9 +204,6 @@ const autoScrollToHash = () => {
   }, 180)
 }
 
-/**
- * 内部页面映射
- */
 const mapPageUrl = id => {
   return '/' + id.replace(/-/g, '')
 }
