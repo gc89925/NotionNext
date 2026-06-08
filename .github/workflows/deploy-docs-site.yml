@@ -47,10 +47,25 @@ jobs:
           VITE_GISCUS_ENABLED: ${{ vars.VITE_GISCUS_ENABLED }}
         run: yarn docs:site:build
 
+      - name: Check Cloudflare Pages secrets
+        id: cf-secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare Pages secrets are not configured; skip docs deployment."
+          fi
+
       - name: Set Pages project name
+        if: steps.cf-secrets.outputs.ready == 'true'
         run: echo "CF_PAGES_PROJECT=${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME || 'notionnext-docs' }}" >> "$GITHUB_ENV"
 
       - name: Deploy to Cloudflare Pages
+        if: steps.cf-secrets.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
