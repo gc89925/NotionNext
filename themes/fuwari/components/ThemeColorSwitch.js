@@ -22,9 +22,15 @@ function normalizeHue(value, fallback) {
   return Math.min(360, Math.max(0, hue))
 }
 
+export function getInitialHue(storedHue, defaultHue, fixed) {
+  if (fixed || !storedHue) return defaultHue
+  return normalizeHue(storedHue, defaultHue)
+}
+
 const ThemeColorSwitch = ({ panelRef, visible = true, onColorChange }) => {
   const enabled = siteConfig('FUWARI_WIDGET_THEME_COLOR_SWITCHER', true, CONFIG)
   const defaultHue = normalizeHue(siteConfig('FUWARI_THEME_COLOR_HUE', 250, CONFIG), 250)
+  const fixed = siteConfig('FUWARI_THEME_COLOR_FIXED', false, CONFIG)
   const [hue, setHue] = useState(defaultHue)
   const color = useMemo(() => hslToHex(hue, 85, 62), [hue])
 
@@ -38,10 +44,10 @@ const ThemeColorSwitch = ({ panelRef, visible = true, onColorChange }) => {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_HUE_KEY)
-    const initialHue = stored ? normalizeHue(stored, defaultHue) : defaultHue
+    const initialHue = getInitialHue(stored, defaultHue, fixed)
     setHue(initialHue)
     applyColor(hslToHex(initialHue, 85, 62), initialHue)
-  }, [applyColor, defaultHue])
+  }, [applyColor, defaultHue, fixed])
 
   const handleSelect = nextHue => {
     setHue(nextHue)

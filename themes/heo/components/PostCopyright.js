@@ -5,6 +5,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import CONFIG from '../config'
 import NotByAI from '@/components/NotByAI'
+import { resolveArticleCopyrightText } from '@/lib/utils/articleCopyright'
 
 /**
  * 版权声明
@@ -18,8 +19,13 @@ export default function PostCopyright({ post }) {
   })
 
   const { locale } = useGlobal()
+  const copyrightText = resolveArticleCopyrightText({
+    post,
+    locale,
+    mode: siteConfig('HEO_ARTICLE_COPYRIGHT', null, CONFIG)
+  })
 
-  if (!siteConfig('HEO_ARTICLE_COPYRIGHT', null, CONFIG)) {
+  if (!copyrightText) {
     return <></>
   }
 
@@ -36,13 +42,14 @@ export default function PostCopyright({ post }) {
           <strong className='mr-2'>{locale.COMMON.URL}:</strong>
           <a
             className='whitespace-normal break-words hover:underline'
-            href={path}>
+            href={path}
+          >
             {path}
           </a>
         </li>
         <li>
           <strong className='mr-2'>{locale.COMMON.COPYRIGHT}:</strong>
-          {post.copyright || locale.COMMON.COPYRIGHT_NOTICE}
+          {copyrightText}
         </li>
         {siteConfig('HEO_ARTICLE_NOT_BY_AI', false, CONFIG) && (
           <li>

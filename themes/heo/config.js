@@ -36,7 +36,7 @@ const CONFIG = {
   HEO_HERO_RECOMMEND_POST_TAG: '推荐',
   HEO_HERO_RECOMMEND_POST_SORT_BY_UPDATE_TIME: false, // 推荐文章排序，为`true`时将强制按最后修改时间倒序
   //   HERO_RECOMMEND_COVER: 'https://cdn.pixabay.com/photo/2015/10/30/20/13/sunrise-1014712_1280.jpg', // 英雄区右侧图片
-  
+
   // 英雄区右侧推荐文章遮罩控制
   HEO_HERO_RECOMMEND_COVER_ENABLE: false, // 是否显示推荐文章遮罩图片，true显示遮罩需点击查看，false直接显示推荐文章
 
@@ -148,7 +148,7 @@ const CONFIG = {
   HEO_POST_LIST_IMG_CROSSOVER: true, // 博客列表图片左右交错
 
   HEO_ARTICLE_ADJACENT: true, // 显示上一篇下一篇文章推荐
-  HEO_ARTICLE_COPYRIGHT: true, // 显示文章版权声明
+  HEO_ARTICLE_COPYRIGHT: true, // 文章版权声明：true 全部显示；false 全部关闭；custom 仅填写 copyright 时显示
   HEO_ARTICLE_NOT_BY_AI: false, // 显示非AI写作
   HEO_ARTICLE_RECOMMEND: true, // 文章关联推荐
 
