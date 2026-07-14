@@ -51,6 +51,8 @@
 | 🛠 站点配置 | `notion-next-iconfont` | [config/notion-next-iconfont.md](./config/notion-next-iconfont.md) |
 | 🛠 站点配置 | `notion-next-code-style` | [config/notion-next-code-style.md](./config/notion-next-code-style.md) |
 | 🛠 站点配置 | `notion-next-custom-properties` | [config/notion-next-custom-properties.md](./config/notion-next-custom-properties.md) |
+| 🛠 站点配置 | `notion-next-copy-permission` | [config/copy-permission.md](./config/copy-permission.md) |
+| 🛠 站点配置 | `notion-next-article-copyright` | [config/article-copyright.md](./config/article-copyright.md) |
 | 🛠 站点配置 | `notion-next-mulity-languages` | [config/notion-next-mulity-languages.md](./config/notion-next-mulity-languages.md) |
 | 🛠 站点配置 | `notion-next-site-combine` | [config/notion-next-site-combine.md](./config/notion-next-site-combine.md) |
 | 🛠 站点配置 | `notion-next-api_base_url` | [config/notion-next-api_base_url.md](./config/notion-next-api_base_url.md) |
@@ -80,6 +82,7 @@
 | 📩 评论插件 | `notion-next-artalk` | [comments/artalk.md](./comments/artalk.md) |
 | 📩 评论插件 | `notion-next-gitalk` | [comments/gitalk.md](./comments/gitalk.md) |
 | 📩 评论插件 | `notionnext-valine` | [comments/valine.md](./comments/valine.md) |
+| 📩 评论插件 | `notion-comments` | [comments/notion-comments.md](./comments/notion-comments.md) |
 | 📩 评论插件 | `notion-next-waline` | [comments/waline.md](./comments/waline.md) |
 | 🧷 外部扩展 | `notion-next-plugins` | [plugins/overview.md](./plugins/overview.md) |
 | 🧷 外部扩展 | `notion-next-plugin-music-player` | [plugins/music-player.md](./plugins/music-player.md) |
