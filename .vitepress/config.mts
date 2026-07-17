@@ -199,6 +199,7 @@ export default defineConfig({
             { text: '快捷键', link: '/user-guide/notion/short-keys' },
             { text: '提升访问速度', link: '/user-guide/notion/faster' },
             { text: '文字添加链接', link: '/user-guide/notion/how-to-add-link-for-text-in-notion' },
+            { text: '文章状态', link: '/user-guide/notion/post-status' },
             { text: '隐藏页面', link: '/user-guide/notion/notionnext-hidden-page' },
             { text: '定时发布', link: '/user-guide/notion/notionnext-scheduled-article-release' },
             { text: '视频嵌入', link: '/user-guide/notion/notionnext-video' },
