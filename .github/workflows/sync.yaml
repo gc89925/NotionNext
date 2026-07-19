@@ -8,6 +8,10 @@ on:
     - cron: "0 0 * * *" # every day
   workflow_dispatch:
 
+concurrency:
+  group: upstream-sync-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   sync_latest_from_upstream:
     name: Sync latest commits from upstream repo
@@ -15,25 +19,63 @@ jobs:
     if: ${{ github.event.repository.fork }}
 
     steps:
-      # Step 1: run a standard checkout action
       - name: Checkout target repo
         uses: actions/checkout@v7
-
-      # Step 2: run the sync action
-      - name: Sync upstream changes
-        id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
         with:
-          upstream_sync_repo: tangly1024/NotionNext
-          upstream_sync_branch: main
-          target_sync_branch: main
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, no need to set
+          fetch-depth: 0
 
-          # Set test_mode true to run tests instead of the true action!!
-          test_mode: false
-
-      - name: Sync check
-        if: failure()
+      - name: Merge upstream while preserving fork workflows
+        env:
+          UPSTREAM_REPO: notionnext-org/NotionNext
+          UPSTREAM_BRANCH: main
+          TARGET_BRANCH: main
         run: |
-          echo "[Error] 由于上游仓库的 workflow 文件变更，导致 GitHub 自动暂停了本次自动更新，你需要手动 Sync Fork 一次。"
-          exit 1
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
+
+          if git merge-base --is-ancestor "upstream/${UPSTREAM_BRANCH}" HEAD; then
+            echo "Fork is already up to date."
+            exit 0
+          fi
+
+          if ! git merge --no-commit --no-ff "upstream/${UPSTREAM_BRANCH}"; then
+            echo "[Error] 上游合并产生冲突，已中止自动同步；请使用本地分支和 PR 人工处理。"
+            git merge --abort || true
+            exit 1
+          fi
+
+          # GitHub's built-in GITHUB_TOKEN is a GitHub App token and cannot
+          # create/update workflow files. Keep the fork's reviewed workflows
+          # unchanged so upstream application/docs code can still sync daily.
+          mapfile -t workflow_paths < <(git diff --name-only HEAD -- .github/workflows)
+          for path in "${workflow_paths[@]}"; do
+            if git cat-file -e "HEAD:${path}" 2>/dev/null; then
+              git restore --source=HEAD --staged --worktree -- "${path}"
+            else
+              git rm -f -- "${path}"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            # The only upstream changes were workflow files. Preserve the fork
+            # versions, record no merge, and finish successfully.
+            git merge --abort
+          else
+            git commit -m "chore: sync upstream NotionNext main"
+            git push origin "HEAD:${TARGET_BRANCH}"
+          fi
+
+          if (( ${#workflow_paths[@]} > 0 )); then
+            {
+              echo "### Upstream workflow changes require review"
+              echo
+              printf -- '- `%s`\n' "${workflow_paths[@]}"
+              echo
+              echo "Application/docs changes were synced. Workflow files were preserved from the fork because GITHUB_TOKEN cannot update them."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::上游包含 workflow 变更；应用代码已同步，workflow 文件保留 fork 版本，等待 Hermes 周维护审核。"
+          fi
