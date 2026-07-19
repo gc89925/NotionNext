@@ -22,6 +22,17 @@ NotionNext搭建的影视分享网站
 
 更新代码至最新的4.4.0；并配置主题为movie即可。
 
+### Movie 主题调色
+
+Movie 支持通过语义色变量调整主色和深色主色：
+
+```js
+MOVIE_COLOR_PRIMARY: '#2563eb',
+MOVIE_COLOR_PRIMARY_DARK: '#ca8a04'
+```
+
+主题工具中的调色板会展示当前值，并可直接复制配置项到 Notion Config。
+
 
 ## Movie 主题
 
