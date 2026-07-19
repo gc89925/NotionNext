@@ -26,6 +26,18 @@ Play Fee Online Game on Game1024
 
 更新代码至最新的4.4.1；并配置主题为game即可。
 
+### Game 主题调色
+
+Game 支持通过语义色变量调整页面背景、滚动条和主色：
+
+```js
+GAME_COLOR_BG: '#ffffff',
+GAME_COLOR_SCROLLBAR: '#4e4e4e',
+GAME_COLOR_PRIMARY: '#22c55e'
+```
+
+主题工具中的调色板会展示当前值，并可直接复制配置项到 Notion Config。
+
 
 ## Game 主题概要
 

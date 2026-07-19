@@ -15,7 +15,12 @@ const giscusCategoryId = process.env.VITE_GISCUS_CATEGORY_ID || ''
  * 在线站发布用户教程、开发文档与社区文档。
  * 根目录 README 仍作为 GitHub 目录说明，不进入 VitePress。
  */
-const srcExclude = ['**/README.md', '**/README.en.md']
+const hiddenPublicDocPaths = ['user-guide/deploy/cloudflare-pages-docs.md']
+const srcExclude = [
+  '**/README.md',
+  '**/README.en.md',
+  ...hiddenPublicDocPaths.map((path) => `**/${path}`)
+]
 
 function getMarkdownTitle(filePath: string) {
   const content = readFileSync(filePath, 'utf8')
@@ -62,7 +67,8 @@ function getUpdatedDocs() {
         repoPath.endsWith('.md') &&
         !repoPath.endsWith('/README.md') &&
         !repoPath.endsWith('/README.en.md') &&
-        !repoPath.includes('/public/')
+        !repoPath.includes('/public/') &&
+        !hiddenPublicDocPaths.includes(repoPath.replace(/^docs\//, ''))
       )
     })
 
@@ -176,7 +182,6 @@ export default defineConfig({
             { text: 'Vercel 多站点', link: '/user-guide/deploy/vercel-multi-sites' },
             { text: 'Vercel 重新部署', link: '/user-guide/deploy/vercel-redeploy' },
             { text: 'Vercel 静态导出', link: '/user-guide/deploy/vercel-static' },
-            { text: 'Cloudflare 文档站', link: '/user-guide/deploy/cloudflare-pages-docs' },
             { text: 'Cloudflare 博客静态', link: '/user-guide/deploy/cloudflare-pages' },
             { text: 'EdgeOne Pages', link: '/user-guide/deploy/edgeone-pages' },
             { text: '构建性能调优', link: '/user-guide/deploy/build-tuning' },
@@ -239,6 +244,7 @@ export default defineConfig({
             { text: '主题目录', link: '/user-guide/themes/' },
             { text: '全览表', link: '/user-guide/themes/THEMES_CATALOG' },
             { text: '主题总览', link: '/user-guide/themes/overview' },
+            { text: '主题控制台', link: '/user-guide/themes/theme-console' },
             ...themeDocLinks
           ]
         },
@@ -365,6 +371,8 @@ export default defineConfig({
           items: [
             { text: '主题开发文档首页', link: '/developer/themes/' },
             { text: '主题迁移指南', link: '/developer/THEME_MIGRATION_GUIDE.zh-CN' },
+            { text: '主题控制台设计', link: '/developer/THEME_CONSOLE_DESIGN.zh-CN' },
+            { text: '主题色变量计划', link: '/developer/THEME_COLOR_TOKEN_ROADMAP.zh-CN' },
             { text: 'Claude', link: '/developer/themes/CLAUDE' },
             { text: 'Endspace', link: '/developer/themes/ENDSPACE' },
             { text: 'Fuwari', link: '/developer/themes/FUWARI' },

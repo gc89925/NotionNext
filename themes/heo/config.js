@@ -4,6 +4,20 @@ const CONFIG = {
 
   HEO_HOME_BANNER_ENABLE: true,
 
+  HEO_COLOR_PRIMARY: '#4f65f0',
+  HEO_COLOR_PRIMARY_HOVER: '#4f46e5',
+  HEO_COLOR_PRIMARY_TEXT: '#ffffff',
+  HEO_COLOR_ACCENT: '#dca846',
+  HEO_COLOR_BG: '#f7f9fe',
+  HEO_COLOR_BG_DARK: '#18171d',
+  HEO_COLOR_CARD: '#ffffff',
+  HEO_COLOR_CARD_DARK: '#1e1e1e',
+  HEO_COLOR_CARD_MUTED: '#f1f3f8',
+  HEO_COLOR_BORDER: '#4f46e5',
+  HEO_COLOR_BORDER_DARK: '#dca846',
+  HEO_COLOR_TEXT: '#111827',
+  HEO_COLOR_TEXT_SECONDARY: '#4b5563',
+
   HEO_SITE_CREATE_TIME: '2021-09-21', // 建站日期，用于计算网站运行的第几天
 
   // 首页顶部通知条滚动内容，如不需要可以留空 []

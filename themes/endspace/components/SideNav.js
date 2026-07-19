@@ -236,9 +236,9 @@ export const SideNav = (props) => {
                 <div className="ml-[5rem] mr-3 border-l border-[var(--endspace-border-base)] py-1">
                   {item.subMenus.map(subItem => (
                     <SmartLink key={subItem.id || subItem.path} href={subItem.path} target={subItem.target}>
-                      <div className={`py-2 pl-4 pr-2 text-xs uppercase tracking-wide transition-colors hover:bg-[#d4d4d8] ${
+                      <div className={`py-2 pl-4 pr-2 text-xs uppercase tracking-wide transition-colors hover:bg-[var(--endspace-bg-secondary)] ${
                         pathMatches(router.asPath, subItem.path)
-                          ? 'font-bold text-black'
+                          ? 'font-bold text-[var(--endspace-text-primary)]'
                           : 'text-[var(--endspace-text-secondary)]'
                       }`}>
                         {subItem.name}
