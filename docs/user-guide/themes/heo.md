@@ -224,6 +224,8 @@ INFOCARD_GREETINGS: [
     '🧱 团队小组发动机'
   ],
 ```
+`HEO_INFO_CARD_AVATAR_BLUR` 用于控制文章详情页右侧信息卡头像样式。默认值为 `true`，保留原有的大尺寸模糊装饰头像；设置为 `false` 时，文章页头像会与首页信息卡保持一致，显示为普通小头像。
+
 下方的 Tangly是显示作者名字，在blog.config.js中配置
   1. **公告栏**， 卡牌中间的文字是公告内容
 ![Untitled](/legacy/ad1cf348d91ede21.png)
