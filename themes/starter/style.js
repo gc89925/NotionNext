@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unknown-property */
-import CONFIG from './config'
+import CONFIG, { starterConfig } from './config'
 import { themeConsoleStyle } from '@/lib/themeConsoleStyle'
 
 /**
@@ -8,7 +8,60 @@ import { themeConsoleStyle } from '@/lib/themeConsoleStyle'
  * @returns
  */
 const Style = () => {
+  const primary = starterConfig('STARTER_COLOR_PRIMARY', CONFIG.STARTER_COLOR_PRIMARY, CONFIG)
+  const primaryHover = starterConfig('STARTER_COLOR_PRIMARY_HOVER', CONFIG.STARTER_COLOR_PRIMARY_HOVER, CONFIG)
+  const dark = starterConfig('STARTER_COLOR_DARK', CONFIG.STARTER_COLOR_DARK, CONFIG)
+  const textMuted = starterConfig('STARTER_COLOR_TEXT_MUTED', CONFIG.STARTER_COLOR_TEXT_MUTED, CONFIG)
+
   return <style jsx global>{`
+
+  #theme-starter {
+    --starter-color-primary: ${primary};
+    --starter-color-primary-hover: ${primaryHover};
+    --starter-color-dark: ${dark};
+    --starter-color-text-muted: ${textMuted};
+  }
+
+  #theme-starter [class~="bg-primary"] {
+    background-color: var(--starter-color-primary) !important;
+  }
+
+  #theme-starter [class~="text-primary"],
+  #theme-starter [class~="hover:text-primary"]:hover,
+  #theme-starter .group:hover [class~="group-hover:text-primary"] {
+    color: var(--starter-color-primary) !important;
+  }
+
+  #theme-starter [class~="border-primary"],
+  #theme-starter [class~="focus:border-primary"]:focus {
+    border-color: var(--starter-color-primary) !important;
+  }
+
+  #theme-starter [class~="ring-primary"],
+  #theme-starter [class~="focus:ring-primary"]:focus {
+    --tw-ring-color: var(--starter-color-primary) !important;
+  }
+
+  #theme-starter [class~="hover:bg-primary"]:hover,
+  #theme-starter [class~="hover:bg-blue-dark"]:hover,
+  #theme-starter [class~="hover:border-blue-dark"]:hover {
+    background-color: var(--starter-color-primary-hover) !important;
+    border-color: var(--starter-color-primary-hover) !important;
+  }
+
+  #theme-starter [class~="bg-dark"],
+  .dark #theme-starter [class~="dark:bg-dark"] {
+    background-color: var(--starter-color-dark) !important;
+  }
+
+  #theme-starter [class~="hover:bg-dark"]:hover {
+    background-color: var(--starter-color-dark) !important;
+  }
+
+  #theme-starter .text-body-color,
+  #theme-starter [class~="text-body-color"] {
+    color: var(--starter-color-text-muted) !important;
+  }
 
   #theme-starter .sticky{
     position: fixed;
@@ -22,7 +75,7 @@ const Style = () => {
   }
 
   :is(.dark #theme-starter .sticky){
-    background-color: rgb(17 25 40 / 0.8);
+    background-color: color-mix(in srgb, var(--starter-color-dark) 80%, transparent);
   }
 
   #theme-starter .sticky {
@@ -52,8 +105,7 @@ const Style = () => {
   }
 
   #theme-starter .sticky #navbarCollapse li > a:hover{
-    --tw-text-opacity: 1;
-    color: rgb(55 88 249 / var(--tw-text-opacity));
+    color: var(--starter-color-primary);
     opacity: 1;
   }
 
@@ -68,8 +120,7 @@ const Style = () => {
   }
 
   :is(.dark #theme-starter .sticky #navbarCollapse li > a:hover){
-    --tw-text-opacity: 1;
-    color: rgb(55 88 249 / var(--tw-text-opacity));
+    color: var(--starter-color-primary);
   }
 
   :is(.dark #theme-starter .sticky #navbarCollapse li > button){
@@ -82,9 +133,23 @@ const Style = () => {
   }
 
   #theme-starter .sticky #navbarCollapse li .ud-menu-scroll.active{
-    --tw-text-opacity: 1;
-    color: rgb(55 88 249 / var(--tw-text-opacity));
+    color: var(--starter-color-primary);
     opacity: 1;
+  }
+
+  #theme-starter .signUpBtn{
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(255 255 255 / 0.2);
+    color: rgb(255 255 255);
+    line-height: 1;
+  }
+
+  #theme-starter .signUpBtn:hover{
+    background-color: rgb(255 255 255);
+    color: rgb(17 25 40);
   }
 
   #theme-starter .sticky .loginBtn{
@@ -93,8 +158,7 @@ const Style = () => {
   }
 
   #theme-starter .sticky .loginBtn:hover{
-    --tw-text-opacity: 1;
-    color: rgb(55 88 249 / var(--tw-text-opacity));
+    color: var(--starter-color-primary);
     opacity: 1;
   }
 
@@ -104,22 +168,29 @@ const Style = () => {
   }
 
   :is(.dark #theme-starter .sticky .loginBtn:hover){
-    --tw-text-opacity: 1;
-    color: rgb(55 88 249 / var(--tw-text-opacity));
+    color: var(--starter-color-primary);
   }
 
   #theme-starter .sticky .signUpBtn{
-    --tw-bg-opacity: 1;
-    background-color: rgb(55 88 249 / var(--tw-bg-opacity));
+    background-color: var(--starter-color-primary);
     --tw-text-opacity: 1;
     color: rgb(255 255 255 / var(--tw-text-opacity));
   }
 
   #theme-starter .sticky .signUpBtn:hover{
-    --tw-bg-opacity: 1;
-    background-color: rgb(27 68 200 / var(--tw-bg-opacity));
+    background-color: var(--starter-color-primary-hover);
     --tw-text-opacity: 1;
     color: rgb(255 255 255 / var(--tw-text-opacity));
+  }
+
+  @media (min-width: 1024px) {
+    #theme-starter #navbarCollapse {
+      background-color: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
   }
 
   #theme-starter .sticky #themeSwitcher ~ span{
@@ -149,8 +220,7 @@ const Style = () => {
   }
 
   .text-body-color{
-    --tw-text-opacity: 1;
-    color: rgb(99 115 129 / var(--tw-text-opacity));
+    color: var(--starter-color-text-muted);
   }
 
   .text-body-secondary{
@@ -184,8 +254,7 @@ const Style = () => {
 
 .common-carousel .swiper-button-next:hover,
 .common-carousel .swiper-button-prev:hover{
-  --tw-bg-opacity: 1;
-  background-color: rgb(55 88 249 / var(--tw-bg-opacity));
+  background-color: var(--starter-color-primary);
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity));
   --tw-shadow: 0 0 #0000;
