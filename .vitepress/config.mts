@@ -183,6 +183,7 @@ export default defineConfig({
             { text: 'Vercel 重新部署', link: '/user-guide/deploy/vercel-redeploy' },
             { text: 'Vercel 静态导出', link: '/user-guide/deploy/vercel-static' },
             { text: 'Cloudflare 博客静态', link: '/user-guide/deploy/cloudflare-pages' },
+            { text: 'Notion 图片反代', link: '/user-guide/deploy/notion-image-proxy' },
             { text: 'EdgeOne Pages', link: '/user-guide/deploy/edgeone-pages' },
             { text: '构建性能调优', link: '/user-guide/deploy/build-tuning' },
             { text: 'Netlify', link: '/user-guide/deploy/netlify' },

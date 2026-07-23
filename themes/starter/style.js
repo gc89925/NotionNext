@@ -289,6 +289,16 @@ const Style = () => {
   }
 
       ${themeConsoleStyle('starter', CONFIG)}
+
+  #theme-starter .starterHeroPrimaryBtn {
+    background-color: rgb(255 255 255) !important;
+    color: rgb(17 25 40) !important;
+  }
+
+  #theme-starter .starterHeroPrimaryBtn:hover {
+    background-color: rgb(243 244 246) !important;
+    color: var(--starter-color-text-muted) !important;
+  }
   `}</style>
 }
 
