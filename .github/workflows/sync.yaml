@@ -42,32 +42,61 @@ jobs:
             exit 0
           fi
 
-          if ! git merge --no-commit --no-ff "upstream/${UPSTREAM_BRANCH}"; then
-            echo "[Error] 上游合并产生冲突，已中止自动同步；请使用本地分支和 PR 人工处理。"
+          merge_rc=0
+          git merge --no-commit --no-ff "upstream/${UPSTREAM_BRANCH}" || merge_rc=$?
+
+          # GitHub's built-in GITHUB_TOKEN is a GitHub App token and cannot
+          # create/update workflow files. Workflow-only conflicts are expected:
+          # keep the fork's reviewed versions and continue. Any conflict outside
+          # .github/workflows remains a hard failure that requires manual review.
+          conflict_paths=()
+          while IFS= read -r path; do
+            [ -n "$path" ] && conflict_paths+=("$path")
+          done < <(git diff --name-only --diff-filter=U)
+          non_workflow_conflicts=()
+          for path in "${conflict_paths[@]}"; do
+            if [[ "$path" != .github/workflows/* ]]; then
+              non_workflow_conflicts+=("$path")
+            fi
+          done
+
+          if (( ${#non_workflow_conflicts[@]} > 0 )); then
+            printf '[Error] 上游合并存在非 workflow 冲突：%s\n' "${non_workflow_conflicts[*]}"
             git merge --abort || true
             exit 1
           fi
 
-          # GitHub's built-in GITHUB_TOKEN is a GitHub App token and cannot
-          # create/update workflow files. Keep the fork's reviewed workflows
-          # unchanged so upstream application/docs code can still sync daily.
-          mapfile -t workflow_paths < <(git diff --name-only HEAD -- .github/workflows)
+          if (( merge_rc != 0 && ${#conflict_paths[@]} == 0 )); then
+            echo "[Error] 上游合并失败，但没有可识别的冲突文件。"
+            git merge --abort || true
+            exit "$merge_rc"
+          fi
+
+          # Record every upstream workflow path changed relative to the fork's
+          # current HEAD, including files that conflicted during the merge.
+          workflow_paths=()
+          while IFS= read -r path; do
+            [ -n "$path" ] && workflow_paths+=("$path")
+          done < <(
+            {
+              git diff --name-only HEAD "upstream/${UPSTREAM_BRANCH}" -- .github/workflows
+              printf '%s\n' "${conflict_paths[@]}"
+            } | sed '/^$/d' | sort -u
+          )
+
           for path in "${workflow_paths[@]}"; do
             if git cat-file -e "HEAD:${path}" 2>/dev/null; then
-              git restore --source=HEAD --staged --worktree -- "${path}"
+              git restore --source=HEAD --staged --worktree -- "$path"
             else
-              git rm -f -- "${path}"
+              git rm -f --ignore-unmatch -- "$path"
             fi
           done
 
-          if git diff --cached --quiet; then
-            # The only upstream changes were workflow files. Preserve the fork
-            # versions, record no merge, and finish successfully.
-            git merge --abort
-          else
-            git commit -m "chore: sync upstream NotionNext main"
-            git push origin "HEAD:${TARGET_BRANCH}"
-          fi
+          # Always create the merge commit, even when upstream changed only
+          # workflow files. Recording upstream as a parent prevents the same
+          # workflow-only conflict from repeating every day.
+          git commit -m "chore: sync upstream NotionNext main"
+          git push origin "HEAD:${TARGET_BRANCH}"
 
           if (( ${#workflow_paths[@]} > 0 )); then
             {
