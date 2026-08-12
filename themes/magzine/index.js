@@ -1,6 +1,5 @@
 import AlgoliaSearchModal from '@/components/AlgoliaSearchModal'
 import Comment from '@/components/Comment'
-import { AdSlot } from '@/components/GoogleAdsense'
 import LoadingCover from '@/components/LoadingCover'
 import replaceSearchResult from '@/components/Mark'
 import NotionPage from '@/components/NotionPage'
@@ -254,9 +253,6 @@ const LayoutSlug = props => {
   return (
     <>
       <div className='w-full mx-auto max-w-screen-3xl'>
-        {/* 广告位 */}
-        <WWAds orientation='horizontal' />
-
         {/* 文章锁 */}
         {lock && <ArticleLock validPassword={validPassword} />}
 
@@ -279,6 +275,12 @@ const LayoutSlug = props => {
 
                   {/* Notion文章主体 */}
                   <article className='max-w-3xl lg:col-span-3 w-full mx-auto px-2 lg:px-0'>
+                    {/* 正文前广告：与左右侧栏顶部对齐 */}
+                    <WWAds
+                      orientation='horizontal'
+                      className='!mt-0 w-full mb-8'
+                    />
+
                     <div id='article-wrapper'>
                       <NotionPage post={post} />
                     </div>
@@ -301,7 +303,7 @@ const LayoutSlug = props => {
                     </section>
                   </article>
 
-                  <div className='lg:col-span-1 flex flex-col justify-between px-2 lg:px-0 space-y-2 lg:space-y-0'>
+                  <div className='lg:col-span-1 flex flex-col gap-6 px-2 lg:px-0'>
                     {/* meta信息 */}
                     <section className='text-lg gap-y-6 text-center lg:text-left'>
                       <div className='text-gray-500 py-1 dark:text-gray-600 '>
@@ -325,29 +327,24 @@ const LayoutSlug = props => {
                       <PostGroupLatest {...props} vertical={true} />
                     </div>
 
-                    {/* Adsense */}
-                    <div>
-                      <AdSlot />
+                    {/* 最新文章后的广告 */}
+                    <div className='w-full'>
+                      <WWAds className='!mt-0 w-full' />
                     </div>
-
-                    {/* 留白 */}
-                    <div></div>
 
                     {/* 文章分类区块 */}
                     <div>
                       <CategoryGroup {...props} />
                     </div>
 
+                    {/* 分类后的广告 */}
+                    <div className='w-full'>
+                      <WWAds className='!mt-0 w-full' />
+                    </div>
+
                     <div>
                       <TouchMeCard />
                     </div>
-
-                    <div>
-                      <WWAds />
-                    </div>
-
-                    {/* 底部留白 */}
-                    <div></div>
                   </div>
                 </div>
 

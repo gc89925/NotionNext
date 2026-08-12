@@ -1,4 +1,4 @@
-# 内置主题全览（26 个）
+# 内置主题全览（27 个）
 
 > 与 `themes/` 目录及 `conf/themeSwitch.manifest.js` 同步 · 当前版本 **4.10.9**
 > 先按站点目标选主题，再进入单个主题文档看配置。
@@ -11,7 +11,7 @@
 
 | 你想做什么 | 优先看 | 备选 | 选择理由 |
 | --- | --- | --- | --- |
-| 个人博客 / 日常写作 | [simple](./simple.md)、[hexo](./hexo.md) | [nobelium](./nobelium.md)、[typography](./typography.md) | 结构清楚、文章优先、配置负担低 |
+| 个人博客 / 日常写作 | [simple](./simple.md)、[hexo](./hexo.md) | [xuhome](./xuhome.md)、[nobelium](./nobelium.md)、[typography](./typography.md) | 结构清楚、文章优先；XuHome 适合希望强化视觉辨识度的站长 |
 | 文档 / 知识库 / 教程站 | [gitbook](./gitbook.md)、[claude](./claude.md) | [thoughtlite](./thoughtlite.md) | 侧边栏、目录和阅读连续性更强 |
 | 作品集 / 个人品牌 | [opc](./opc.md)、[proxio](./proxio.md) | [starter](./starter.md)、[landing](./landing.md) | 首屏表达强，适合展示身份、作品、服务和 AI 任务流水线 |
 | 产品官网 / SaaS 落地页 | [starter](./starter.md)、[landing](./landing.md) | [commerce](./commerce.md) | 有产品介绍、功能区块、价格和 CTA 结构 |
@@ -81,6 +81,7 @@
 | `endspace` | Endspace | 终末工业风加载与侧栏 | [endspace.md](./endspace.md) · [ENDSPACE.md](../../developer/themes/ENDSPACE.md) |
 | `example` | Example | 主题开发骨架 | [example.md](./example.md) |
 | `thoughtlite` | ThoughtLite | 时间线首页 + Latest 卡片 | [thoughtlite.md](./thoughtlite.md) · [THOUGHTLITE.md](../../developer/themes/THOUGHTLITE.md) |
+| `xuhome` | XuHome | 新粗野主义卡片博客 + Hero 打字机 | [xuhome.md](./xuhome.md) |
 
 ## 主题切换挂件
 

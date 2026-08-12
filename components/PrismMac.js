@@ -43,14 +43,34 @@ const PrismMac = () => {
   useEffect(() => {
     let isDisposed = false
     let stopLineNumbers = () => {}
+    let stopMermaid = () => {}
     let observer = null
+    let newCodeBlocksObserver = null
     let initTimer = null
+    let enhancementTimer = null
     let hasInitialized = false
+
+    const cleanupPrism = () => {
+      try {
+        stopLineNumbers()
+      } catch (e) {
+        /* ignore */
+      }
+
+      try {
+        stopMermaid()
+      } catch (e) {
+        /* ignore */
+      }
+      stopLineNumbers = () => {}
+      stopMermaid = () => {}
+    }
 
     const renderCodeEnhancements = () => {
       if (isDisposed) return
 
       try {
+        cleanupPrism()
         if (typeof window !== 'undefined' && !window.Prism) {
           window.Prism = Prism
         }
@@ -58,19 +78,54 @@ const PrismMac = () => {
           window.Prism.plugins.autoloader.languages_path = prismjsPath
         }
 
-        try {
-          stopLineNumbers()
-        } catch (e) {
-          /* ignore */
-        }
-
         const dispose = renderPrismMac(codeLineNumbers, codeMacBar)
         stopLineNumbers = typeof dispose === 'function' ? dispose : () => {}
-        renderMermaid(mermaidCDN)
+        const disposeMermaid = renderMermaid(mermaidCDN)
+        stopMermaid =
+          typeof disposeMermaid === 'function' ? disposeMermaid : () => {}
         renderCollapseCode(codeCollapse, codeCollapseExpandDefault)
+        getNotionArticle()
+          ?.querySelectorAll('pre.notion-code')
+          .forEach(codeBlock => {
+            codeBlock.dataset.prismMacEnhanced = 'true'
+          })
       } catch (err) {
         console.warn('[PrismMac] render failed:', err)
       }
+    }
+
+    const containsUnenhancedCodeBlock = node => {
+      if (node?.nodeType !== 1) return false
+      if (
+        node.matches?.('pre.notion-code') &&
+        node.dataset?.prismMacEnhanced !== 'true'
+      ) {
+        return true
+      }
+
+      return Array.from(node.querySelectorAll?.('pre.notion-code') || []).some(
+        codeBlock => codeBlock.dataset.prismMacEnhanced !== 'true'
+      )
+    }
+
+    const observeNewCodeBlocks = article => {
+      newCodeBlocksObserver?.disconnect()
+      newCodeBlocksObserver = new MutationObserver(mutations => {
+        const hasNewCodeBlock = mutations.some(mutation =>
+          Array.from(mutation.addedNodes).some(containsUnenhancedCodeBlock)
+        )
+        if (!hasNewCodeBlock || enhancementTimer) return
+
+        enhancementTimer = window.setTimeout(() => {
+          enhancementTimer = null
+          renderCodeEnhancements()
+        }, 0)
+      })
+      newCodeBlocksObserver.observe(article, {
+        childList: true,
+        // Tabs and toggles can insert code several levels below the article.
+        subtree: true
+      })
     }
 
     const loadCodeStyleSheets = () => {
@@ -113,10 +168,11 @@ const PrismMac = () => {
 
       // 先用本地 Prism 渲染，避免外部 autoloader 阻塞基础代码增强。
       renderCodeEnhancements()
+      observeNewCodeBlocks(article)
 
       loadExternalResource(prismjsAutoLoader, 'js')
         .then(() => {
-          renderCodeEnhancements()
+          if (!isDisposed) renderCodeEnhancements()
         })
         .catch(err => {
           console.warn('[PrismMac] prism autoloader load failed:', err)
@@ -134,13 +190,11 @@ const PrismMac = () => {
     return () => {
       isDisposed = true
       observer?.disconnect()
+      newCodeBlocksObserver?.disconnect()
       if (initTimer) clearTimeout(initTimer)
+      if (enhancementTimer) clearTimeout(enhancementTimer)
       closeCodeSidePanel()
-      try {
-        stopLineNumbers()
-      } catch (e) {
-        /* ignore */
-      }
+      cleanupPrism()
     }
   }, [pathname, isDarkMode])
 
@@ -185,7 +239,7 @@ const loadPrismMacStyleCSS = () => {
 
 const CODE_SIDE_PANEL_ID = 'notion-code-side-panel'
 const CODE_SIDE_PANEL_DESKTOP_QUERY = '(min-width: 1024px)'
-const CODE_SIDE_PANEL_KEYDOWN = '__notionNextCodeSidePanelKeydown'
+const CODE_SIDE_PANEL_STATE = '__notionNextCodeSidePanelState'
 
 export const isCodeSidePanelSupported = () => {
   if (typeof window === 'undefined') return false
@@ -201,10 +255,27 @@ export const closeCodeSidePanel = () => {
   if (existing) existing.remove()
 
   if (typeof window !== 'undefined') {
-    const keydownHandler = window[CODE_SIDE_PANEL_KEYDOWN]
-    if (keydownHandler) {
-      document.removeEventListener('keydown', keydownHandler)
-      delete window[CODE_SIDE_PANEL_KEYDOWN]
+    const state = window[CODE_SIDE_PANEL_STATE]
+    if (state?.keydownHandler) {
+      document.removeEventListener('keydown', state.keydownHandler)
+    }
+    if (state?.desktopQuery && state.viewportHandler) {
+      if (typeof state.desktopQuery.removeEventListener === 'function') {
+        state.desktopQuery.removeEventListener('change', state.viewportHandler)
+      } else {
+        state.desktopQuery.removeListener?.(state.viewportHandler)
+      }
+    }
+    if (state && document.body) {
+      document.body.style.overflow = state.bodyOverflow
+    }
+    if (state && document.documentElement) {
+      document.documentElement.style.overflow = state.documentOverflow
+    }
+    delete window[CODE_SIDE_PANEL_STATE]
+
+    if (state?.returnFocus?.isConnected) {
+      state.returnFocus.focus()
     }
   }
 
@@ -229,6 +300,10 @@ export const openCodeSidePanel = ({
     return false
   }
 
+  const returnFocus =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
   closeCodeSidePanel()
 
   const root = document.createElement('div')
@@ -245,7 +320,7 @@ export const openCodeSidePanel = ({
   drawer.className = 'code-side-panel-drawer'
   drawer.setAttribute('role', 'dialog')
   drawer.setAttribute('aria-label', '代码预览侧栏')
-  drawer.setAttribute('aria-modal', 'false')
+  drawer.setAttribute('aria-modal', 'true')
 
   const header = document.createElement('div')
   header.className = 'code-side-panel-header'
@@ -317,13 +392,59 @@ export const openCodeSidePanel = ({
   root.appendChild(drawer)
 
   const keydownHandler = event => {
-    if (event.key === 'Escape') closeCodeSidePanel()
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeCodeSidePanel()
+      return
+    }
+    if (event.key !== 'Tab') return
+
+    const activeElement = document.activeElement
+    if (
+      event.shiftKey &&
+      (activeElement === copyButton || !drawer.contains(activeElement))
+    ) {
+      event.preventDefault()
+      closeButton.focus()
+    } else if (
+      !event.shiftKey &&
+      (activeElement === closeButton || !drawer.contains(activeElement))
+    ) {
+      event.preventDefault()
+      copyButton.focus()
+    }
   }
-  window[CODE_SIDE_PANEL_KEYDOWN] = keydownHandler
+  const desktopQuery =
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia(CODE_SIDE_PANEL_DESKTOP_QUERY)
+      : null
+  const viewportHandler = event => {
+    if (!event.matches) closeCodeSidePanel()
+  }
+  if (typeof desktopQuery?.addEventListener === 'function') {
+    desktopQuery.addEventListener('change', viewportHandler)
+  } else {
+    desktopQuery?.addListener?.(viewportHandler)
+  }
+  window[CODE_SIDE_PANEL_STATE] = {
+    bodyOverflow: document.body?.style.overflow || '',
+    documentOverflow: document.documentElement?.style.overflow || '',
+    desktopQuery,
+    viewportHandler,
+    keydownHandler,
+    returnFocus
+  }
   document.addEventListener('keydown', keydownHandler)
+  if (document.body) document.body.style.overflow = 'hidden'
+  if (document.documentElement) {
+    document.documentElement.style.overflow = 'hidden'
+  }
 
   document.body.appendChild(root)
-  requestFrame(() => root.classList.add('is-open'))
+  closeButton.focus()
+  requestFrame(() => {
+    if (root.isConnected) root.classList.add('is-open')
+  })
 
   return true
 }
@@ -489,7 +610,7 @@ export const renderCollapseCode = (codeCollapse, codeCollapseExpandDefault) => {
  */
 const renderMermaid = mermaidCDN => {
   const articles = getNotionArticles()
-  if (!articles || articles.length === 0) return
+  if (!articles || articles.length === 0) return () => {}
 
   let hasMermaidBlocks = false
 
@@ -511,7 +632,7 @@ const renderMermaid = mermaidCDN => {
     }
   }
 
-  if (!hasMermaidBlocks) return
+  if (!hasMermaidBlocks) return () => {}
 
   loadExternalResource(mermaidCDN, 'js')
     .then(() => {
@@ -528,6 +649,8 @@ const renderMermaid = mermaidCDN => {
     .catch(err => {
       console.warn('[PrismMac] mermaid load failed:', err)
     })
+
+  return () => {}
 }
 
 function renderPrismMac(codeLineNumbers, codeMacBar) {
