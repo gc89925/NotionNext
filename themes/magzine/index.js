@@ -285,6 +285,9 @@ const LayoutSlug = props => {
                       <NotionPage post={post} />
                     </div>
 
+                    {/* 正文末尾广告：与正文保持足够间距 */}
+                    <WWAds orientation='horizontal' className='w-full my-8' />
+
                     {/* 文章底部区域  */}
                     <section>
                       <div className='py-2 flex justify-end flex-nowrap overflow-x-auto scroll-hidden gap-x-3'>
@@ -303,7 +306,7 @@ const LayoutSlug = props => {
                     </section>
                   </article>
 
-                  <div className='lg:col-span-1 flex flex-col gap-6 px-2 lg:px-0'>
+                  <div className='lg:col-span-1 flex flex-col justify-between px-2 lg:px-0 space-y-2 lg:space-y-0'>
                     {/* meta信息 */}
                     <section className='text-lg gap-y-6 text-center lg:text-left'>
                       <div className='text-gray-500 py-1 dark:text-gray-600 '>
@@ -327,24 +330,20 @@ const LayoutSlug = props => {
                       <PostGroupLatest {...props} vertical={true} />
                     </div>
 
-                    {/* 最新文章后的广告 */}
-                    <div className='w-full'>
-                      <WWAds className='!mt-0 w-full' />
-                    </div>
+                    {/* 留白 */}
+                    <div></div>
 
                     {/* 文章分类区块 */}
                     <div>
                       <CategoryGroup {...props} />
                     </div>
 
-                    {/* 分类后的广告 */}
-                    <div className='w-full'>
-                      <WWAds className='!mt-0 w-full' />
-                    </div>
-
                     <div>
                       <TouchMeCard />
                     </div>
+
+                    {/* 底部留白 */}
+                    <div></div>
                   </div>
                 </div>
 
