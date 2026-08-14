@@ -19,6 +19,9 @@
 | `CAN_COPY` | 是否允许复制正文；文章可用 `CAN_COPY` 或 `ext.CAN_COPY` 单独覆盖 |
 | `GREETING_WORDS` | 欢迎语打字（部分主题） |
 | `LAYOUT_SIDEBAR_REVERSE` | 侧栏左右反转（hexo/next 等） |
+| `PWA_ENABLE` | 开启 Android Chrome PWA 安装入口 |
+| `PWA_THEME_COLOR` | 配置 PWA 安装入口启用后的主题色 |
+| `PWA_NAME` / `PWA_SHORT_NAME` / `PWA_ICON` | 备用覆盖 PWA 安装名称和图标；默认读取站点信息 |
 | `UUID_REDIRECT` | UUID 重定向到 slug |
 | `CUSTOM_EXTERNAL_JS` / `CSS` | 外链脚本样式 |
 | `BEI_AN` / `BEI_AN_GONGAN` | 备案号 |
@@ -38,6 +41,7 @@
 | `POSTS_SHARE_SERVICES` | 分享渠道列表 |
 | `ARTICLE_EXPIRATION_*` | 文章过期提示（HEO 等主题） |
 | `TAG_SORT_BY_COUNT` | 标签按文章数排序 |
+| `INNER_PAGE_URL_PARENT_PATH` / `NEXT_PUBLIC_INNER_PAGE_URL_PARENT_PATH` | 未收录内嵌子页面 URL 跟随父级文章路径（4.10.10+） |
 
 ## Notion（conf/notion.config.js）
 
