@@ -2,14 +2,14 @@
   "name": "notion-next",
   "version": "4.10.10",
   "packageManager": "yarn@1.22.22",
-  "homepage": "https://github.com/tangly1024/NotionNext.git",
+  "homepage": "https://github.com/notionnext-org/NotionNext.git",
   "license": "MIT",
   "engines": {
     "node": ">=22 <25"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tangly1024/NotionNext.git"
+    "url": "https://github.com/notionnext-org/NotionNext.git"
   },
   "author": {
     "name": "tangly",
@@ -150,7 +150,7 @@
     "uuid": "^11.1.1"
   },
   "bugs": {
-    "url": "https://github.com/tangly/NotionNext/issues",
+    "url": "https://github.com/notionnext-org/NotionNext/issues",
     "email": "tlyong1992@hotmail.com"
   }
 }
